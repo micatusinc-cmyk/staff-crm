@@ -311,11 +311,11 @@
     <div class="field" id="w_reasonField" style="display:none;">
       <label>離職理由(会社を辞める理由)</label>
       <select id="w_reason">
+        <option value="現場不満">現場不満</option>
+        <option value="条件">条件</option>
         <option value="給与">給与</option>
-        <option value="人間関係">人間関係</option>
-        <option value="業務内容">業務内容</option>
-        <option value="家庭都合">家庭都合</option>
         <option value="他社転職">他社転職</option>
+        <option value="音信不通">音信不通</option>
         <option value="その他">その他</option>
       </select>
       <textarea id="w_reasonNote" placeholder="補足メモ(任意)" style="margin-top:8px;"></textarea>
@@ -335,10 +335,14 @@
         <div class="full"><label>退場理由</label>
           <select id="a_reason">
             <option value="">-</option>
-            <option value="契約満了">契約満了</option>
-            <option value="クライアント都合">クライアント都合</option>
-            <option value="本人希望">本人希望</option>
-            <option value="勤怠・品質">勤怠・品質</option>
+            <option value="現場環境">現場環境</option>
+            <option value="現場都合">現場都合</option>
+            <option value="移動距離・時間">移動距離・時間</option>
+            <option value="業務内容">業務内容</option>
+            <option value="休日・稼働時間">休日・稼働時間</option>
+            <option value="勤怠不良">勤怠不良</option>
+            <option value="実績不振">実績不振</option>
+            <option value="インシデント">インシデント</option>
             <option value="その他">その他</option>
           </select>
         </div>
