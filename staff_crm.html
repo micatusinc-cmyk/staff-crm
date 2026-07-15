@@ -178,6 +178,12 @@
           <option value="partner_all">②パートナー集客(全体)</option>
         </select>
         <input id="filterSearch" placeholder="氏名で検索">
+        <select id="sortOrder">
+          <option value="hire_desc">入職日: 新しい順</option>
+          <option value="hire_asc">入職日: 古い順</option>
+          <option value="tenure_desc">在籍期間: 長い順</option>
+          <option value="tenure_asc">在籍期間: 短い順</option>
+        </select>
       </div>
 
       <div class="card">
@@ -382,6 +388,10 @@ let editingManagerId = null;
 let editingAssignmentId = null;
 let retentionPeriods = [3,6,12];
 let lastManagerId = lsGet('crm-last-manager') || '';
+let lastChannelType = lsGet('crm-last-ctype') || 'own';
+let lastChannelDetail = lsGet('crm-last-cdetail') || 'jobA';
+let lastPartnerName = lsGet('crm-last-partner') || '';
+let lastProjectName = lsGet('crm-last-project') || '';
 
 const $ = (id) => document.getElementById(id);
 
@@ -487,14 +497,19 @@ function matchesChannelFilter(s, val){
   return true;
 }
 function populateManagerSelects(){
+  const wCurrent = $('w_manager') ? $('w_manager').value : '';
+  const fCurrent = $('filterManager') ? $('filterManager').value : 'all';
+
   const opts = managers.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
   $('w_manager').innerHTML = opts || '<option value="">(担当者未登録)</option>';
   $('filterManager').innerHTML = '<option value="all">担当者: 全て</option>' + managers.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+
+  if(wCurrent && managers.some(m=>m.id===wCurrent)) $('w_manager').value = wCurrent;
+  if(fCurrent && (fCurrent==='all' || managers.some(m=>m.id===fCurrent))) $('filterManager').value = fCurrent;
 }
 
 /* ============ render: workers ============ */
 function renderWorkers(){
-  populateManagerSelects();
   const fManager = $('filterManager').value;
   const fStatus = $('filterStatus').value;
   const fChannel = $('filterChannel').value;
@@ -511,7 +526,15 @@ function renderWorkers(){
   tbody.innerHTML='';
   $('workerEmpty').style.display = filtered.length? 'none':'block';
 
-  const sorted = [...filtered].sort((a,b)=> (b.hireDate||'').localeCompare(a.hireDate||''));
+  const sortMode = $('sortOrder').value;
+  const tenureMonths = (s)=> monthsBetween(s.hireDate, s.resignDate || new Date());
+  const sorters = {
+    hire_desc: (a,b)=> (b.hireDate||'').localeCompare(a.hireDate||''),
+    hire_asc: (a,b)=> (a.hireDate||'').localeCompare(b.hireDate||''),
+    tenure_desc: (a,b)=> tenureMonths(b) - tenureMonths(a),
+    tenure_asc: (a,b)=> tenureMonths(a) - tenureMonths(b),
+  };
+  const sorted = [...filtered].sort(sorters[sortMode] || sorters.hire_desc);
   for(const s of sorted){
     const sm = statusMeta(s);
     const cur = currentAssignment(s.id);
@@ -554,6 +577,7 @@ function renderWorkers(){
 
 /* ============ render: managers ============ */
 function renderManagers(){
+  populateManagerSelects();
   const tbody = $('managerTbody');
   tbody.innerHTML='';
   $('managerEmpty').style.display = managers.length? 'none':'block';
@@ -755,10 +779,11 @@ function renderAll(){ renderWorkers(); renderManagers(); renderAnalytics(); }
 /* ============ worker modal ============ */
 function resetWorkerForm(){
   $('w_id').value=''; $('w_name').value=''; $('w_hire').value=''; $('w_resign').value='';
-  $('w_memo').value=''; $('w_partnerName').value=''; $('w_reasonNote').value='';
+  $('w_memo').value=''; $('w_reasonNote').value='';
+  $('w_partnerName').value = lastChannelType==='partner' ? lastPartnerName : '';
   document.querySelector('input[name=w_status][value=active]').checked=true;
-  document.querySelector('input[name=w_ctype][value=own]').checked=true;
-  document.querySelector('input[name=w_cdetail_own][value=jobA]').checked=true;
+  document.querySelector(`input[name=w_ctype][value=${lastChannelType}]`).checked=true;
+  document.querySelector(`input[name=w_cdetail_own][value=${lastChannelType==='own'? lastChannelDetail : 'jobA'}]`).checked=true;
   $('w_reason').value='給与';
   $('w_btnDelete').style.display='none';
   toggleWorkerStatusFields(); toggleWorkerChannelFields();
@@ -778,7 +803,7 @@ function toggleWorkerChannelFields(){
 
 /* ---- assignment sub-CRUD within worker modal ---- */
 function resetAssignmentForm(){
-  $('a_id').value=''; $('a_project').value=''; $('a_start').value=''; $('a_end').value=''; $('a_reason').value=''; $('a_memo').value='';
+  $('a_id').value=''; $('a_project').value=lastProjectName; $('a_start').value=''; $('a_end').value=''; $('a_reason').value=''; $('a_memo').value='';
   $('a_btnCancel').style.display='none';
   $('a_btnSave').textContent='追加';
   editingAssignmentId = null;
@@ -829,6 +854,7 @@ async function saveAssignment(){
   const idx = assignments.findIndex(x=>x.id===record.id);
   if(idx>=0) assignments[idx]=record; else assignments.push(record);
   await saveAssignmentsLocal();
+  lastProjectName = projectName; lsSet('crm-last-project', lastProjectName);
   resetAssignmentForm();
   renderAssignmentList();
   renderAll();
@@ -933,6 +959,12 @@ async function saveWorker(){
   await saveWorkersLocal();
   syncRecord('worker', record);
   if(record.managerId){ lastManagerId = record.managerId; lsSet('crm-last-manager', lastManagerId); }
+  lastChannelType = ctype; lsSet('crm-last-ctype', lastChannelType);
+  if(ctype==='own'){
+    lastChannelDetail = record.channelDetail; lsSet('crm-last-cdetail', lastChannelDetail);
+  }else{
+    lastPartnerName = record.channelDetail; lsSet('crm-last-partner', lastPartnerName);
+  }
 
   if(isNew){
     // 新規保存後は同じモーダルを編集モードに切り替え、案件履歴を追加できるようにする
@@ -1034,6 +1066,7 @@ $('filterManager').addEventListener('change', renderWorkers);
 $('filterStatus').addEventListener('change', renderWorkers);
 $('filterChannel').addEventListener('change', renderWorkers);
 $('filterSearch').addEventListener('input', renderWorkers);
+$('sortOrder').addEventListener('change', renderWorkers);
 $('btnAddPeriod').addEventListener('click', async ()=>{
   const v = Number($('newPeriodInput').value);
   if(!v || v<=0){ alert('1以上の数値(ヶ月)を入力してください'); return; }
