@@ -387,6 +387,11 @@
 let workers = [];
 let managers = [];
 let assignments = [];
+/* 連携用のGAS URLをここに直接貼り付けておくと、ブラウザで開くたびに
+   「連携設定」画面で入力し直さなくても自動的に使われます。
+   (URLを空文字のままにしておけば、今まで通り連携設定画面から手入力する運用になります) */
+const DEFAULT_GAS_URL = '';
+
 let gasUrl = '';
 let editingWorkerId = null;
 let editingManagerId = null;
@@ -1045,6 +1050,10 @@ $('btnAddPeriod').addEventListener('click', async ()=>{
 
 (async function init(){
   await loadLocal();
+  if(!gasUrl && DEFAULT_GAS_URL){
+    gasUrl = DEFAULT_GAS_URL;
+    await window.storage.set('crm-gas-url', gasUrl).catch(()=>{});
+  }
   await autoTransitionRetiring();
   $('gasUrl').value = gasUrl;
   if(gasUrl) $('syncStatusText').textContent = '連携URLが設定されています。';
