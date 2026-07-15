@@ -141,10 +141,12 @@
 <div class="shell">
   <nav class="side">
     <div class="brand">稼働者CRM<span>WORKER RETENTION</span></div>
+    <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:5px;">
+      <span class="status-dot" id="syncDot"></span> スプレッドシート連携
+    </div>
     <button class="active" data-view="workers">稼働者一覧</button>
     <button data-view="managers">担当者別サマリー</button>
     <button data-view="analytics">分析ダッシュボード</button>
-    <button data-view="settings">連携設定</button>
   </nav>
 
   <main>
@@ -169,8 +171,8 @@
           <option value="all">経路: 全て</option>
           <option value="own_all">①自社集客(全体)</option>
           <optgroup label="─ 自社集客の内訳">
-            <option value="own_jobA">　求人A</option>
-            <option value="own_jobB">　求人B</option>
+            <option value="own_jobA">　Zone</option>
+            <option value="own_jobB">　NC</option>
             <option value="own_referral">　リファラル</option>
           </optgroup>
           <option value="partner_all">②パートナー集客(全体)</option>
@@ -257,22 +259,6 @@
         </div>
       </div>
     </section>
-
-    <!-- ===== SETTINGS VIEW ===== -->
-    <section id="view-settings" style="display:none;">
-      <div class="topbar"><div><h1>連携設定</h1><div class="meta">Googleスプレッドシートと同期</div></div></div>
-      <div class="card">
-        <h2>Google Apps Script 連携URL</h2>
-        <div class="sync-row">
-          <span class="status-dot" id="syncDot"></span>
-          <input id="gasUrl" placeholder="https://script.google.com/macros/s/xxxx/exec">
-          <button class="btn ghost" id="btnSaveUrl">保存</button>
-          <button class="btn ghost" id="btnSyncNow">今すぐ同期</button>
-        </div>
-        <p class="hint" id="syncStatusText">未設定の場合はこの端末内(ブラウザ)にのみデータが保存されます。URLを設定すると、保存・編集のたびにスプレッドシートへ自動反映されます。</p>
-        <p class="hint">連携用のApps Scriptコードは別ファイル(code.gs)として用意しています。スプレッドシートの「拡張機能 → Apps Script」に貼り付けてウェブアプリとしてデプロイし、発行されたURLをここに入力してください。稼働者マスタ・担当者マスタ・案件配属履歴の3シートが自動で作られます。</p>
-      </div>
-    </section>
   </main>
 </div>
 
@@ -306,8 +292,8 @@
       </div>
       <div class="subfield" id="w_ownDetailWrap">
         <div class="radio-row" id="w_ownDetailRow">
-          <label><input type="radio" name="w_cdetail_own" value="jobA" checked>求人A</label>
-          <label><input type="radio" name="w_cdetail_own" value="jobB">求人B</label>
+          <label><input type="radio" name="w_cdetail_own" value="jobA" checked>Zone</label>
+          <label><input type="radio" name="w_cdetail_own" value="jobB">NC</label>
           <label><input type="radio" name="w_cdetail_own" value="referral">リファラル</label>
         </div>
       </div>
@@ -387,10 +373,8 @@
 let workers = [];
 let managers = [];
 let assignments = [];
-/* 連携用のGAS URLをここに直接貼り付けておくと、ブラウザで開くたびに
-   「連携設定」画面で入力し直さなくても自動的に使われます。
-   (URLを空文字のままにしておけば、今まで通り連携設定画面から手入力する運用になります) */
-const DEFAULT_GAS_URL = '';
+/* 連携用のGAS URLをここに直接埋め込んでいるので、アプリを開けば自動的にスプレッドシートと同期されます。 */
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwTx7eFuhr_ZGpq0Uni8Bxa_ezPzJyfeK0vm9C0jy8uIHukr426KJFL0tfLHDLDrBMH/exec';
 
 let gasUrl = '';
 let editingWorkerId = null;
@@ -400,18 +384,22 @@ let retentionPeriods = [3,6,12];
 
 const $ = (id) => document.getElementById(id);
 
-/* ============ storage ============ */
+/* ============ storage (ブラウザのlocalStorageを使用。GitHub Pages等どこにデプロイしても動作) ============ */
+function lsGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
+function lsSet(key, val){ try{ localStorage.setItem(key, val); }catch(e){} }
+
 async function loadLocal(){
-  try{ const r = await window.storage.get('crm-workers'); workers = r? JSON.parse(r.value):[]; }catch(e){ workers=[]; }
-  try{ const r = await window.storage.get('crm-managers'); managers = r? JSON.parse(r.value):[]; }catch(e){ managers=[]; }
-  try{ const r = await window.storage.get('crm-assignments'); assignments = r? JSON.parse(r.value):[]; }catch(e){ assignments=[]; }
-  try{ const u = await window.storage.get('crm-gas-url'); gasUrl = u? u.value:''; }catch(e){ gasUrl=''; }
-  try{ const p = await window.storage.get('crm-retention-periods'); if(p) retentionPeriods = JSON.parse(p.value); }catch(e){}
+  try{ const r = lsGet('crm-workers'); workers = r? JSON.parse(r):[]; }catch(e){ workers=[]; }
+  try{ const r = lsGet('crm-managers'); managers = r? JSON.parse(r):[]; }catch(e){ managers=[]; }
+  try{ const r = lsGet('crm-assignments'); assignments = r? JSON.parse(r):[]; }catch(e){ assignments=[]; }
+  try{ const u = lsGet('crm-gas-url'); gasUrl = u || ''; }catch(e){ gasUrl=''; }
+  try{ const p = lsGet('crm-retention-periods'); if(p) retentionPeriods = JSON.parse(p); }catch(e){}
 }
-async function savePeriodsLocal(){ try{ await window.storage.set('crm-retention-periods', JSON.stringify(retentionPeriods)); }catch(e){} }
-async function saveWorkersLocal(){ try{ await window.storage.set('crm-workers', JSON.stringify(workers)); }catch(e){} }
-async function saveManagersLocal(){ try{ await window.storage.set('crm-managers', JSON.stringify(managers)); }catch(e){} }
-async function saveAssignmentsLocal(){ try{ await window.storage.set('crm-assignments', JSON.stringify(assignments)); }catch(e){} }
+async function savePeriodsLocal(){ lsSet('crm-retention-periods', JSON.stringify(retentionPeriods)); }
+async function saveWorkersLocal(){ lsSet('crm-workers', JSON.stringify(workers)); }
+async function saveManagersLocal(){ lsSet('crm-managers', JSON.stringify(managers)); }
+async function saveAssignmentsLocal(){ lsSet('crm-assignments', JSON.stringify(assignments)); }
+
 
 /* ============ GAS sync ============ */
 async function syncRecord(entity, record){
@@ -447,11 +435,18 @@ async function pullFromSheet(silent){
 }
 function setDot(ok){
   const d = $('syncDot');
+  if(!d) return;
   d.className = 'status-dot' + (ok===true?' ok':ok===false?' err':'');
 }
 
 /* ============ helpers ============ */
 function uid(p){ return (p||'id') + '_' + Date.now() + Math.random().toString(36).slice(2,7); }
+function formatDateJP(iso){
+  if(!iso) return '-';
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!m) return iso;
+  return `${m[1]}年${m[2]}月${m[3]}日`;
+}
 function monthsBetween(a,b){
   const d1=new Date(a), d2=new Date(b||new Date());
   return (d2.getFullYear()-d1.getFullYear())*12 + (d2.getMonth()-d1.getMonth()) + (d2.getDate()>=d1.getDate()?0:-1);
@@ -464,7 +459,7 @@ function fmtTenure(s){
 }
 function channelLabel(s){
   if(s.channelType==='own'){
-    const map={jobA:'求人A', jobB:'求人B', referral:'リファラル'};
+    const map={jobA:'Zone', jobB:'NC', referral:'リファラル'};
     return '自社/' + (map[s.channelDetail]||s.channelDetail);
   }
   return 'パートナー/' + (s.channelDetail||'-');
@@ -524,8 +519,8 @@ function renderWorkers(){
       <td>${s.name||'(名称未設定)'}</td>
       <td>${managerName(s.managerId)}</td>
       <td><span class="badge ${sm.cls}">${sm.label}</span></td>
-      <td>${s.hireDate||'-'}</td>
-      <td>${s.resignDate||'-'}</td>
+      <td>${formatDateJP(s.hireDate)}</td>
+      <td>${formatDateJP(s.resignDate)}</td>
       <td><span class="chip">${channelLabel(s)}</span></td>
       <td>${cur? `<span class="chip">${cur.projectName}</span>` : `<span class="chip faint">未配属</span>`}</td>
       <td>${fmtTenure(s)}</td>
@@ -677,8 +672,8 @@ function renderAnalytics(){
   const partnerList = workers.filter(s=>s.channelType==='partner');
   const partnerNames = [...new Set(partnerList.map(s=> s.channelDetail || '(パートナー名未入力)'))];
   const ownChildren = [
-    {key:'jobA', label:'求人A', list: ownList.filter(s=>s.channelDetail==='jobA')},
-    {key:'jobB', label:'求人B', list: ownList.filter(s=>s.channelDetail==='jobB')},
+    {key:'jobA', label:'Zone', list: ownList.filter(s=>s.channelDetail==='jobA')},
+    {key:'jobB', label:'NC', list: ownList.filter(s=>s.channelDetail==='jobB')},
     {key:'referral', label:'リファラル', list: ownList.filter(s=>s.channelDetail==='referral')},
   ];
   const partnerChildren = partnerNames.map((n,idx)=>({key:'p_'+idx, label:n, list: partnerList.filter(s=>(s.channelDetail||'(パートナー名未入力)')===n)}));
@@ -795,7 +790,7 @@ function renderAssignmentList(){
     return `<div class="assign-row">
       <div>
         <div class="a-main">${a.projectName||'(案件名未入力)'} ${ongoing?'<span class="badge active">稼働中</span>':'<span class="badge resigned">退場済</span>'}</div>
-        <div class="a-sub">${a.startDate||'-'} 〜 ${a.endDate||'(継続中)'}${a.leaveReason? ' / 退場理由: '+a.leaveReason : ''}</div>
+        <div class="a-sub">${formatDateJP(a.startDate)} 〜 ${a.endDate? formatDateJP(a.endDate) : '(継続中)'}${a.leaveReason? ' / 退場理由: '+a.leaveReason : ''}</div>
       </div>
       <div class="a-actions">
         <button data-aedit="${a.id}">編集</button>
@@ -1005,7 +1000,7 @@ async function deleteManager(){
 /* ============ nav ============ */
 function switchView(view){
   document.querySelectorAll('nav.side button').forEach(b=> b.classList.toggle('active', b.dataset.view===view));
-  ['workers','managers','analytics','settings'].forEach(v=> $('view-'+v).style.display = v===view?'block':'none');
+  ['workers','managers','analytics'].forEach(v=> $('view-'+v).style.display = v===view?'block':'none');
   if(view==='analytics') renderAnalytics();
   if(view==='managers') renderManagers();
   if(view==='workers') renderWorkers();
@@ -1029,12 +1024,6 @@ $('m_btnSave').addEventListener('click', saveManager);
 $('m_btnDelete').addEventListener('click', deleteManager);
 $('managerOverlay').addEventListener('click', (e)=>{ if(e.target.id==='managerOverlay') closeManagerModal(); });
 
-$('btnSaveUrl').addEventListener('click', async ()=>{
-  gasUrl = $('gasUrl').value.trim();
-  try{ await window.storage.set('crm-gas-url', gasUrl); }catch(e){}
-  $('syncStatusText').textContent = gasUrl ? '連携URLを保存しました。以後の保存・編集は自動でスプレッドシートへ送信されます。' : '未設定の場合はこの端末内(ブラウザ)にのみデータが保存されます。';
-});
-$('btnSyncNow').addEventListener('click', ()=> pullFromSheet(false));
 $('filterManager').addEventListener('change', renderWorkers);
 $('filterStatus').addEventListener('change', renderWorkers);
 $('filterChannel').addEventListener('change', renderWorkers);
@@ -1050,19 +1039,17 @@ $('btnAddPeriod').addEventListener('click', async ()=>{
 
 (async function init(){
   await loadLocal();
-  if(!gasUrl && DEFAULT_GAS_URL){
+  // ファイルに埋め込まれたURLを常に優先して使う(設定画面は無いため)
+  if(DEFAULT_GAS_URL){
     gasUrl = DEFAULT_GAS_URL;
-    await window.storage.set('crm-gas-url', gasUrl).catch(()=>{});
+    lsSet('crm-gas-url', gasUrl);
   }
   await autoTransitionRetiring();
-  $('gasUrl').value = gasUrl;
-  if(gasUrl) $('syncStatusText').textContent = '連携URLが設定されています。自動で最新データを取得中...';
   renderAll();
   if(gasUrl){
     await pullFromSheet(true); // 起動時に自動でスプレッドシートの最新データを取得
     await autoTransitionRetiring();
     renderAll();
-    $('syncStatusText').textContent = '連携URLが設定されています。開くたびに自動で最新化されます。';
   }
 })();
 </script>
