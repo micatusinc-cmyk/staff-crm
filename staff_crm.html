@@ -390,7 +390,7 @@ let assignments = [];
 /* 連携用のGAS URLをここに直接貼り付けておくと、ブラウザで開くたびに
    「連携設定」画面で入力し直さなくても自動的に使われます。
    (URLを空文字のままにしておけば、今まで通り連携設定画面から手入力する運用になります) */
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwTx7eFuhr_ZGpq0Uni8Bxa_ezPzJyfeK0vm9C0jy8uIHukr426KJFL0tfLHDLDrBMH/exec';
+const DEFAULT_GAS_URL = '';
 
 let gasUrl = '';
 let editingWorkerId = null;
@@ -429,8 +429,8 @@ async function syncDeleteRecord(entity, id){
     setDot(true);
   }catch(e){ setDot(false); }
 }
-async function pullFromSheet(){
-  if(!gasUrl){ alert('先にGAS連携URLを保存してください'); return; }
+async function pullFromSheet(silent){
+  if(!gasUrl){ if(!silent) alert('先にGAS連携URLを保存してください'); return; }
   try{
     const [wr, mr, ar] = await Promise.all([
       fetch(gasUrl + '?entity=worker').then(r=>r.json()),
@@ -443,7 +443,7 @@ async function pullFromSheet(){
     await saveWorkersLocal(); await saveManagersLocal(); await saveAssignmentsLocal();
     renderAll();
     setDot(true);
-  }catch(e){ setDot(false); alert('同期に失敗しました。URLを確認してください。'); }
+  }catch(e){ setDot(false); if(!silent) alert('同期に失敗しました。URLを確認してください。'); }
 }
 function setDot(ok){
   const d = $('syncDot');
@@ -1034,7 +1034,7 @@ $('btnSaveUrl').addEventListener('click', async ()=>{
   try{ await window.storage.set('crm-gas-url', gasUrl); }catch(e){}
   $('syncStatusText').textContent = gasUrl ? '連携URLを保存しました。以後の保存・編集は自動でスプレッドシートへ送信されます。' : '未設定の場合はこの端末内(ブラウザ)にのみデータが保存されます。';
 });
-$('btnSyncNow').addEventListener('click', pullFromSheet);
+$('btnSyncNow').addEventListener('click', ()=> pullFromSheet(false));
 $('filterManager').addEventListener('change', renderWorkers);
 $('filterStatus').addEventListener('change', renderWorkers);
 $('filterChannel').addEventListener('change', renderWorkers);
@@ -1056,8 +1056,14 @@ $('btnAddPeriod').addEventListener('click', async ()=>{
   }
   await autoTransitionRetiring();
   $('gasUrl').value = gasUrl;
-  if(gasUrl) $('syncStatusText').textContent = '連携URLが設定されています。';
+  if(gasUrl) $('syncStatusText').textContent = '連携URLが設定されています。自動で最新データを取得中...';
   renderAll();
+  if(gasUrl){
+    await pullFromSheet(true); // 起動時に自動でスプレッドシートの最新データを取得
+    await autoTransitionRetiring();
+    renderAll();
+    $('syncStatusText').textContent = '連携URLが設定されています。開くたびに自動で最新化されます。';
+  }
 })();
 </script>
 </body>
