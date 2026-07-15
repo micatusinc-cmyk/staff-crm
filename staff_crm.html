@@ -206,7 +206,7 @@
       <div class="card">
         <table>
           <thead>
-            <tr><th>担当者</th><th>受け持ち人数(稼働中)</th><th>累計入職</th><th>累計退職</th><th>継続率</th><th>メモ</th><th></th></tr>
+            <tr><th>担当者</th><th>受け持ち人数(稼働中)</th><th>累計入職</th><th>累計退職</th><th>継続率</th><th>稼働平均年月</th><th>退職平均年月</th><th>メモ</th><th></th></tr>
           </thead>
           <tbody id="managerTbody"></tbody>
         </table>
@@ -220,17 +220,25 @@
         <div><h1>分析ダッシュボード</h1><div class="meta">継続率・入退職・離職理由・案件退場理由</div></div>
       </div>
 
+      <div class="filter-bar" style="margin-bottom:6px;">
+        <select id="analyticsManagerFilter"><option value="all">担当者: 全体</option></select>
+      </div>
+
       <div class="an-grid">
         <div>
           <div class="card">
-            <h2>継続率(会社全体)</h2>
+            <h2>継続率<span id="analyticsScopeLabel" style="font-weight:400;color:var(--sub);"></span></h2>
             <div class="filter-bar" style="margin-bottom:10px;align-items:center;">
               <div id="periodChips"></div>
               <input id="newPeriodInput" type="number" min="1" placeholder="例: 1" style="width:70px;">
               <button class="btn ghost small" id="btnAddPeriod">＋期間を追加(ヶ月)</button>
             </div>
             <div class="retain-wrap" id="gaugeWrap"></div>
-            <p class="hint">「1」を追加すれば1ヶ月以内(短期離脱)の継続率も見られます。チップの×で削除できます。</p>
+            <p class="hint">「1」を追加すれば1ヶ月以内(短期離脱)の継続率も見られます。チップの×で削除できます。カッコ内は対象人数です。</p>
+          </div>
+          <div class="card">
+            <h2>離職率・平均勤続</h2>
+            <div class="grid-kpi" id="turnoverKpi"></div>
           </div>
           <div class="card">
             <h2>月別 入職・退職数(直近12ヶ月)</h2>
@@ -243,15 +251,16 @@
           <div class="card">
             <h2>離職理由の内訳(会社を辞めた理由)</h2>
             <div class="reason-list" id="reasonList"></div>
+            <p class="hint">項目をタップすると対象者の詳細が開きます。</p>
           </div>
         </div>
         <div>
           <div class="card">
-            <h2>入職経路別 継続率</h2>
+            <h2>入職経路別 継続率(自社/パートナー別)</h2>
             <div class="bars" id="channelBars"></div>
           </div>
-          <div class="card">
-            <h2>担当者別 継続率</h2>
+          <div class="card" id="managerBarsCard">
+            <h2>担当者別 継続率(自社/パートナー別)</h2>
             <div class="bars" id="managerBars"></div>
           </div>
           <div class="card">
@@ -261,6 +270,7 @@
           <div class="card">
             <h2>案件退場理由の内訳</h2>
             <div class="reason-list" id="leaveReasonList"></div>
+            <p class="hint">項目をタップすると対象者の詳細が開きます。</p>
           </div>
         </div>
       </div>
@@ -466,6 +476,17 @@ function monthsBetween(a,b){
   const d1=new Date(a), d2=new Date(b||new Date());
   return (d2.getFullYear()-d1.getFullYear())*12 + (d2.getMonth()-d1.getMonth()) + (d2.getDate()>=d1.getDate()?0:-1);
 }
+function monthsToStr(m){
+  if(m===null || m===undefined || isNaN(m)) return '-';
+  if(m<0) m=0;
+  const y=Math.floor(m/12), mm=m%12;
+  return (y>0? y+'年':'') + mm+'ヶ月';
+}
+function avgMonths(list, endGetter){
+  const vals = list.map(s=> monthsBetween(s.hireDate, endGetter(s))).filter(v=>!isNaN(v) && v!==null);
+  if(!vals.length) return null;
+  return Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
+}
 function fmtTenure(s){
   const m = monthsBetween(s.hireDate, s.resignDate || new Date());
   if(m<0) return '-';
@@ -588,32 +609,65 @@ function renderManagers(){
 
   for(const m of managers){
     const list = workers.filter(s=>s.managerId===m.id);
-    const activeCount = list.filter(s=>s.status==='active').length;
-    const resignedCount = list.filter(s=>s.status==='resigned').length;
-    const rate = list.length? Math.round(list.filter(s=>s.status!=='resigned').length/list.length*100) : null;
+    const activeList = list.filter(s=>s.status!=='resigned');
+    const resignedList = list.filter(s=>s.status==='resigned');
+    const rate = list.length? Math.round(activeList.length/list.length*100) : null;
+    const avgActive = avgMonths(activeList, ()=> new Date());
+    const avgResigned = avgMonths(resignedList, s=> s.resignDate);
+
+    const ownList = list.filter(s=>s.channelType==='own');
+    const partnerList = list.filter(s=>s.channelType==='partner');
+    const sub = (l)=>({
+      count: l.length,
+      active: l.filter(s=>s.status!=='resigned').length,
+      resigned: l.filter(s=>s.status==='resigned').length,
+      rate: l.length? Math.round(l.filter(s=>s.status!=='resigned').length/l.length*100) : null
+    });
+    const ownStat = sub(ownList), partnerStat = sub(partnerList);
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${m.name}</td>
-      <td>${activeCount}人</td>
+      <td>${activeList.length}人</td>
       <td>${list.length}人</td>
-      <td>${resignedCount}人</td>
+      <td>${resignedList.length}人</td>
       <td>${rate===null?'-':rate+'%'}</td>
+      <td>${monthsToStr(avgActive)}</td>
+      <td>${monthsToStr(avgResigned)}</td>
       <td>${m.memo||''}</td>
-      <td class="row-actions"><button data-medit="${m.id}">編集</button></td>
+      <td class="row-actions"><button data-mtoggle="${m.id}">内訳</button><button data-medit="${m.id}">編集</button></td>
     `;
     tbody.appendChild(tr);
+
+    const detailTr = document.createElement('tr');
+    detailTr.id = 'mdetail-'+m.id;
+    detailTr.style.display = 'none';
+    detailTr.innerHTML = `<td colspan="9" style="background:#f7f9fc;">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;padding:6px 4px;font-size:12px;">
+        <div><strong>①自社集客</strong> ─ 受け持ち:${ownStat.active}人 / 累計:${ownStat.count}人 / 退職:${ownStat.resigned}人 / 継続率:${ownStat.rate===null?'-':ownStat.rate+'%'}</div>
+        <div><strong>②パートナー集客</strong> ─ 受け持ち:${partnerStat.active}人 / 累計:${partnerStat.count}人 / 退職:${partnerStat.resigned}人 / 継続率:${partnerStat.rate===null?'-':partnerStat.rate+'%'}</div>
+      </div>
+    </td>`;
+    tbody.appendChild(detailTr);
   }
   tbody.querySelectorAll('[data-medit]').forEach(b=> b.addEventListener('click', ()=> openManagerModal(b.dataset.medit)));
+  tbody.querySelectorAll('[data-mtoggle]').forEach(b=> b.addEventListener('click', ()=>{
+    const row = $('mdetail-'+b.dataset.mtoggle);
+    if(row) row.style.display = row.style.display==='none' ? 'table-row' : 'none';
+  }));
 }
 
 /* ============ render: analytics ============ */
-function retentionRate(months){
-  const eligible = workers.filter(s=> s.hireDate && monthsBetween(s.hireDate, new Date()) >= months);
-  if(!eligible.length) return null;
+let analyticsManagerFilter = 'all';
+
+function retentionDetail(months, list){
+  const eligible = list.filter(s=> s.hireDate && monthsBetween(s.hireDate, new Date()) >= months);
+  if(!eligible.length) return {rate:null, retained:0, eligible:0};
   const retained = eligible.filter(s=> !s.resignDate || monthsBetween(s.hireDate, s.resignDate) >= months);
-  return Math.round(retained.length/eligible.length*100);
+  return {rate: Math.round(retained.length/eligible.length*100), retained: retained.length, eligible: eligible.length};
 }
-function gaugeSvg(pct, label){
+function gaugeSvg(detail, label){
+  const pct = detail.rate;
   const r=34, c=2*Math.PI*r;
   const val = pct===null? 0 : pct;
   const off = c - (val/100*c);
@@ -626,6 +680,7 @@ function gaugeSvg(pct, label){
       <text x="45" y="49" text-anchor="middle" class="g-num">${pct===null?'-':pct+'%'}</text>
     </svg>
     <div class="g-lbl">${label}</div>
+    <div class="g-lbl" style="color:var(--sub);">${detail.eligible? detail.retained+'/'+detail.eligible+'名' : '対象なし'}</div>
   </div>`;
 }
 function renderPeriodChips(){
@@ -651,6 +706,19 @@ function drillListHtml(list){
     return `<div class="drill-row"><span>${s.name||'(名称未設定)'} <span style="color:var(--sub);">/ ${managerName(s.managerId)}</span></span><span><span class="badge ${sm.cls}" style="margin-right:6px;">${sm.label}</span>${fmtTenure(s)}</span></div>`;
   }).join('');
 }
+function drillListHtmlForResign(list){
+  if(!list.length) return '<div class="drill-empty">対象者なし</div>';
+  return [...list].sort((a,b)=>(b.resignDate||'').localeCompare(a.resignDate||'')).map(s=>`
+    <div class="drill-row"><span>${s.name||'(名称未設定)'} <span style="color:var(--sub);">/ ${managerName(s.managerId)}</span></span><span>${formatDateJP(s.resignDate)}${s.resignReasonNote? ' ・ '+s.resignReasonNote : ''}</span></div>
+  `).join('');
+}
+function drillListHtmlForLeave(list){
+  if(!list.length) return '<div class="drill-empty">対象者なし</div>';
+  return [...list].sort((a,b)=>(b.endDate||'').localeCompare(a.endDate||'')).map(a=>{
+    const w = workers.find(x=>x.id===a.workerId);
+    return `<div class="drill-row"><span>${w? w.name : '(削除済み)'} <span style="color:var(--sub);">/ ${a.projectName||'-'}</span></span><span>${formatDateJP(a.endDate)}${a.memo? ' ・ '+a.memo : ''}</span></div>`;
+  }).join('');
+}
 function bindDrillClicks(container){
   container.querySelectorAll('[data-drill]').forEach(row=>{
     row.addEventListener('click', ()=>{
@@ -659,18 +727,44 @@ function bindDrillClicks(container){
     });
   });
 }
+function populateAnalyticsManagerFilter(){
+  const sel = $('analyticsManagerFilter');
+  const current = sel.value || 'all';
+  sel.innerHTML = '<option value="all">担当者: 全体</option>' + managers.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  if(current==='all' || managers.some(m=>m.id===current)) sel.value = current;
+  analyticsManagerFilter = sel.value;
+}
 function renderAnalytics(){
+  populateAnalyticsManagerFilter();
+  const scopedWorkers = analyticsManagerFilter==='all' ? workers : workers.filter(w=>w.managerId===analyticsManagerFilter);
+  const scopedIds = new Set(scopedWorkers.map(w=>w.id));
+  const scopedAssignments = assignments.filter(a=>scopedIds.has(a.workerId));
+  $('analyticsScopeLabel').textContent = analyticsManagerFilter==='all' ? '(会社全体)' : '('+managerName(analyticsManagerFilter)+')';
+
   renderPeriodChips();
   const sortedPeriods = [...retentionPeriods].sort((a,b)=>a-b);
   $('gaugeWrap').innerHTML = sortedPeriods.length
-    ? sortedPeriods.map(m=> gaugeSvg(retentionRate(m), m+'ヶ月時点')).join('')
+    ? sortedPeriods.map(m=> gaugeSvg(retentionDetail(m, scopedWorkers), m+'ヶ月時点')).join('')
     : '<div class="empty">測定期間が設定されていません</div>';
+
+  // 離職率・平均勤続
+  const resignedList = scopedWorkers.filter(s=>s.status==='resigned');
+  const activeList = scopedWorkers.filter(s=>s.status!=='resigned');
+  const turnoverRate = scopedWorkers.length? Math.round(resignedList.length/scopedWorkers.length*100) : null;
+  const avgResignedM = avgMonths(resignedList, s=>s.resignDate);
+  const avgActiveM = avgMonths(activeList, ()=> new Date());
+  $('turnoverKpi').innerHTML = `
+    <div class="kpi"><div class="num" style="color:var(--coral);">${turnoverRate===null?'-':turnoverRate+'%'}</div><div class="lbl">離職率(累計退職 ÷ 累計採用)</div></div>
+    <div class="kpi"><div class="num">${resignedList.length}<span style="font-size:14px;">/${scopedWorkers.length}人</span></div><div class="lbl">退職者数 / 累計採用数</div></div>
+    <div class="kpi"><div class="num">${monthsToStr(avgResignedM)}</div><div class="lbl">平均勤続(辞めた人)</div></div>
+    <div class="kpi"><div class="num">${monthsToStr(avgActiveM)}</div><div class="lbl">平均在籍(稼働中の人)</div></div>
+  `;
 
   const months=[];
   const d = new Date(); d.setDate(1);
   for(let i=11;i>=0;i--){ const dt = new Date(d.getFullYear(), d.getMonth()-i, 1); months.push(dt.toISOString().slice(0,7)); }
-  const hireCounts = months.map(m=> workers.filter(s=> s.hireDate && s.hireDate.slice(0,7)===m).length);
-  const resignCounts = months.map(m=> workers.filter(s=> s.resignDate && s.resignDate.slice(0,7)===m).length);
+  const hireCounts = months.map(m=> scopedWorkers.filter(s=> s.hireDate && s.hireDate.slice(0,7)===m).length);
+  const resignCounts = months.map(m=> scopedWorkers.filter(s=> s.resignDate && s.resignDate.slice(0,7)===m).length);
   const maxV = Math.max(1, ...hireCounts, ...resignCounts);
   $('trendBars').innerHTML = months.map((m,i)=>`
     <div class="bar-row">
@@ -683,22 +777,24 @@ function renderAnalytics(){
     </div>
   `).join('');
 
-  // company-level resign reasons
-  const resigned = workers.filter(s=>s.status==='resigned');
-  const reasonCounts = {};
-  resigned.forEach(s=>{ const r=s.resignReason||'未記入'; reasonCounts[r]=(reasonCounts[r]||0)+1; });
-  const maxR = Math.max(1, ...Object.values(reasonCounts));
-  const rEntries = Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1]);
-  $('reasonList').innerHTML = rEntries.length ? rEntries.map(([r,c])=>`
-    <div class="reason-row">
+  // company-level resign reasons (クリックで詳細)
+  const reasonGroups = {};
+  resignedList.forEach(s=>{ const r=s.resignReason||'未記入'; (reasonGroups[r] = reasonGroups[r]||[]).push(s); });
+  const maxR = Math.max(1, ...Object.values(reasonGroups).map(l=>l.length));
+  const rEntries = Object.entries(reasonGroups).sort((a,b)=>b[1].length-a[1].length);
+  const reasonEl = $('reasonList');
+  reasonEl.innerHTML = rEntries.length ? rEntries.map(([r,list],idx)=>`
+    <div class="reason-row clickable" data-drill="rr_${idx}">
       <span>${r}</span>
-      <div class="bar-track"><div class="bar-fill" style="width:${c/maxR*100}%;background:var(--coral);"></div></div>
-      <span>${c}</span>
-    </div>`).join('') : '<div class="empty">退職者がまだいません</div>';
+      <div class="bar-track"><div class="bar-fill" style="width:${list.length/maxR*100}%;background:var(--coral);"></div></div>
+      <span>${list.length}</span>
+    </div>
+    <div class="drill" id="drill-rr_${idx}">${drillListHtmlForResign(list)}</div>`).join('') : '<div class="empty">退職者がまだいません</div>';
+  bindDrillClicks(reasonEl);
 
-  // channel: own vs partner, 2-tier
-  const ownList = workers.filter(s=>s.channelType==='own');
-  const partnerList = workers.filter(s=>s.channelType==='partner');
+  // channel: own vs partner, 2-tier(スコープ内で集計)
+  const ownList = scopedWorkers.filter(s=>s.channelType==='own');
+  const partnerList = scopedWorkers.filter(s=>s.channelType==='partner');
   const partnerNames = [...new Set(partnerList.map(s=> s.channelDetail || '(パートナー名未入力)'))];
   const ownChildren = [
     {key:'jobA', label:'Zone', list: ownList.filter(s=>s.channelDetail==='jobA')},
@@ -707,52 +803,58 @@ function renderAnalytics(){
   ];
   const partnerChildren = partnerNames.map((n,idx)=>({key:'p_'+idx, label:n, list: partnerList.filter(s=>(s.channelDetail||'(パートナー名未入力)')===n)}));
 
-  function groupHtml(groupLabel, groupList, children){
+  function groupHtml(groupLabel, groupList, children, keyPrefix){
     const r = rateOf(groupList);
     let html = `<div class="bar-row" style="font-weight:700;">
       <span>${groupLabel}</span>
       <div class="bar-track"><div class="bar-fill" style="width:${r||0}%;background:var(--navy-2);"></div></div>
       <span>${r===null?'-':r+'%'}</span>
-    </div>`;
+    </div>
+    <div class="hint" style="margin:0 0 4px;">入職:${groupList.length}人 / 退職:${groupList.filter(s=>s.status==='resigned').length}人</div>`;
     for(const c of children){
       const cr = rateOf(c.list);
-      html += `<div class="bar-row clickable" data-drill="${c.key}" style="padding-left:14px;">
+      html += `<div class="bar-row clickable" data-drill="${keyPrefix}${c.key}" style="padding-left:14px;">
         <span>└ ${c.label}</span>
         <div class="bar-track"><div class="bar-fill" style="width:${cr||0}%"></div></div>
         <span>${cr===null?'-':cr+'%'}</span>
       </div>
-      <div class="drill" id="drill-${c.key}">${drillListHtml(c.list)}</div>`;
+      <div class="drill" id="drill-${keyPrefix}${c.key}">${drillListHtml(c.list)}</div>`;
     }
     return html;
   }
   const chEl = $('channelBars');
-  chEl.innerHTML = groupHtml('①自社集客', ownList, ownChildren) + `<div style="height:6px;"></div>` +
-    groupHtml('②パートナー集客', partnerList, partnerChildren) +
+  chEl.innerHTML = groupHtml('①自社集客', ownList, ownChildren, 'ch_') + `<div style="height:6px;"></div>` +
+    groupHtml('②パートナー集客', partnerList, partnerChildren, 'ch_') +
     `<div class="hint">在籍率 = 現在稼働中 ÷ その区分の累計採用数。内訳をタップすると個人別に開きます。</div>`;
   bindDrillClicks(chEl);
 
-  // manager retention
+  // manager retention (全体表示の時だけ、担当者ごとに自社/パートナー内訳を表示)
+  const mgCard = $('managerBarsCard');
   const mgEl = $('managerBars');
-  if(!managers.length){
-    mgEl.innerHTML = '<div class="empty">担当者が未登録です</div>';
+  if(analyticsManagerFilter!=='all'){
+    mgCard.style.display = 'none';
   }else{
-    let mhtml = '';
-    managers.forEach((m,idx)=>{
-      const list = workers.filter(s=>s.managerId===m.id);
-      const r = rateOf(list);
-      mhtml += `<div class="bar-row clickable" data-drill="mg_${idx}">
-        <span>${m.name}</span>
-        <div class="bar-track"><div class="bar-fill" style="width:${r||0}%;background:var(--amber);"></div></div>
-        <span>${r===null?'-':r+'%'}</span>
-      </div>
-      <div class="drill" id="drill-mg_${idx}">${drillListHtml(list)}</div>`;
-    });
-    mgEl.innerHTML = mhtml + `<div class="hint">在籍率 = 現在稼働中 ÷ その担当者の累計受け持ち数。名前をタップすると個人別に開きます。</div>`;
-    bindDrillClicks(mgEl);
+    mgCard.style.display = 'block';
+    if(!managers.length){
+      mgEl.innerHTML = '<div class="empty">担当者が未登録です</div>';
+    }else{
+      let mhtml = '';
+      managers.forEach((m,idx)=>{
+        const list = workers.filter(s=>s.managerId===m.id);
+        const own = list.filter(s=>s.channelType==='own');
+        const partner = list.filter(s=>s.channelType==='partner');
+        mhtml += groupHtml(m.name, list, [
+          {key:'own', label:'①自社', list: own},
+          {key:'partner', label:'②パートナー', list: partner},
+        ], 'mg_'+idx+'_') + `<div style="height:4px;"></div>`;
+      });
+      mgEl.innerHTML = mhtml + `<div class="hint">名前の下の①②をタップすると個人別に開きます。</div>`;
+      bindDrillClicks(mgEl);
+    }
   }
 
-  // 案件別 現在の稼働人数
-  const ongoing = assignments.filter(a=>!a.endDate);
+  // 案件別 現在の稼働人数(スコープ内)
+  const ongoing = scopedAssignments.filter(a=>!a.endDate);
   const projCounts = {};
   ongoing.forEach(a=>{ const p=a.projectName||'(案件名未入力)'; projCounts[p]=(projCounts[p]||0)+1; });
   const maxP = Math.max(1, ...Object.values(projCounts));
@@ -764,18 +866,20 @@ function renderAnalytics(){
       <span>${c}</span>
     </div>`).join('') : '<div class="empty">現在配属中の案件がありません</div>';
 
-  // 案件退場理由
-  const left = assignments.filter(a=>a.endDate);
-  const leaveCounts = {};
-  left.forEach(a=>{ const r=a.leaveReason||'未記入'; leaveCounts[r]=(leaveCounts[r]||0)+1; });
-  const maxL = Math.max(1, ...Object.values(leaveCounts));
-  const lEntries = Object.entries(leaveCounts).sort((a,b)=>b[1]-a[1]);
-  $('leaveReasonList').innerHTML = lEntries.length ? lEntries.map(([r,c])=>`
-    <div class="reason-row">
+  // 案件退場理由(スコープ内、クリックで詳細)
+  const leaveGroups = {};
+  scopedAssignments.filter(a=>a.endDate).forEach(a=>{ const r=a.leaveReason||'未記入'; (leaveGroups[r]=leaveGroups[r]||[]).push(a); });
+  const maxL = Math.max(1, ...Object.values(leaveGroups).map(l=>l.length));
+  const lEntries = Object.entries(leaveGroups).sort((a,b)=>b[1].length-a[1].length);
+  const leaveEl = $('leaveReasonList');
+  leaveEl.innerHTML = lEntries.length ? lEntries.map(([r,list],idx)=>`
+    <div class="reason-row clickable" data-drill="lr_${idx}">
       <span>${r}</span>
-      <div class="bar-track"><div class="bar-fill" style="width:${c/maxL*100}%;background:var(--amber);"></div></div>
-      <span>${c}</span>
-    </div>`).join('') : '<div class="empty">案件を退場した記録がまだありません</div>';
+      <div class="bar-track"><div class="bar-fill" style="width:${list.length/maxL*100}%;background:var(--amber);"></div></div>
+      <span>${list.length}</span>
+    </div>
+    <div class="drill" id="drill-lr_${idx}">${drillListHtmlForLeave(list)}</div>`).join('') : '<div class="empty">案件を退場した記録がまだありません</div>';
+  bindDrillClicks(leaveEl);
 }
 
 function renderAll(){ renderWorkers(); renderManagers(); renderAnalytics(); }
@@ -1071,6 +1175,10 @@ $('filterStatus').addEventListener('change', renderWorkers);
 $('filterChannel').addEventListener('change', renderWorkers);
 $('filterSearch').addEventListener('input', renderWorkers);
 $('sortOrder').addEventListener('change', renderWorkers);
+$('analyticsManagerFilter').addEventListener('change', ()=>{
+  analyticsManagerFilter = $('analyticsManagerFilter').value;
+  renderAnalytics();
+});
 $('btnAddPeriod').addEventListener('click', async ()=>{
   const v = Number($('newPeriodInput').value);
   if(!v || v<=0){ alert('1以上の数値(ヶ月)を入力してください'); return; }
