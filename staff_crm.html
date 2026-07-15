@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>稼働者管理CRM</title>
+<title>ReLGroup稼働者管理</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -140,9 +140,9 @@
 
 <div class="shell">
   <nav class="side">
-    <div class="brand">稼働者CRM<span>WORKER RETENTION</span></div>
+    <div class="brand">ReLGroup<span>稼働者管理</span></div>
     <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:5px;">
-      <span class="status-dot" id="syncDot"></span> スプレッドシート連携
+      <span class="status-dot" id="syncDot"></span>
     </div>
     <button class="active" data-view="workers">稼働者一覧</button>
     <button data-view="managers">担当者別サマリー</button>
@@ -381,6 +381,7 @@ let editingWorkerId = null;
 let editingManagerId = null;
 let editingAssignmentId = null;
 let retentionPeriods = [3,6,12];
+let lastManagerId = lsGet('crm-last-manager') || '';
 
 const $ = (id) => document.getElementById(id);
 
@@ -874,6 +875,9 @@ function openWorkerModal(id){
     $('workerModalTitle').textContent = '稼働者を追加';
     $('assignList').innerHTML='';
     $('assignHint').style.display='block';
+    if(lastManagerId && managers.some(m=>m.id===lastManagerId)){
+      $('w_manager').value = lastManagerId;
+    }
   }
   $('workerOverlay').classList.add('open');
 }
@@ -928,6 +932,7 @@ async function saveWorker(){
   if(idx>=0) workers[idx]=record; else workers.push(record);
   await saveWorkersLocal();
   syncRecord('worker', record);
+  if(record.managerId){ lastManagerId = record.managerId; lsSet('crm-last-manager', lastManagerId); }
 
   if(isNew){
     // 新規保存後は同じモーダルを編集モードに切り替え、案件履歴を追加できるようにする
@@ -938,6 +943,7 @@ async function saveWorker(){
     $('assignHint').style.display='none';
     renderAssignmentList();
     renderAll();
+    $('w_manager').value = record.managerId || '';
   }else{
     renderAll();
     closeWorkerModal();
