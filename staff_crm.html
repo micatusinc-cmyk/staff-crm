@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>稼働者管理CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#132542;
+    --navy-2:#1c3a63;
+    --teal:#2f8f9d;
+    --amber:#d98e3f;
+    --coral:#c85c5c;
+    --bg:#f4f6f9;
+    --card:#ffffff;
+    --line:#e2e6ee;
+    --text:#1c2534;
+    --sub:#6b7688;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);}
+  h1,h2,h3,.disp{font-family:'Zen Kaku Gothic New',sans-serif;}
+
+  .shell{display:flex;min-height:100vh;}
+  nav.side{width:200px;flex:0 0 200px;background:var(--navy);color:#dfe6f2;padding:24px 0;position:sticky;top:0;height:100vh;}
+  nav.side .brand{font-family:'Zen Kaku Gothic New';font-weight:900;font-size:18px;padding:0 20px 22px;letter-spacing:.04em;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:14px;}
+  nav.side .brand span{display:block;font-size:11px;font-weight:500;color:#8ea3c4;margin-top:4px;letter-spacing:.1em;}
+  nav.side button{display:block;width:100%;text-align:left;background:none;border:none;color:#c3cee2;padding:12px 20px;font-size:14px;cursor:pointer;font-family:inherit;border-left:3px solid transparent;transition:.15s;}
+  nav.side button:hover{background:rgba(255,255,255,.06);}
+  nav.side button.active{color:#fff;background:rgba(255,255,255,.09);border-left-color:var(--amber);font-weight:600;}
+
+  main{flex:1;padding:28px 32px 60px;max-width:1140px;}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;gap:12px;flex-wrap:wrap;}
+  .topbar h1{font-size:20px;margin:0;font-weight:700;}
+  .topbar .meta{font-size:12px;color:var(--sub);}
+
+  .btn{background:var(--navy);color:#fff;border:none;padding:10px 18px;border-radius:8px;font-size:13px;cursor:pointer;font-weight:600;font-family:inherit;}
+  .btn:hover{background:var(--navy-2);}
+  .btn.ghost{background:none;color:var(--navy);border:1px solid var(--line);}
+  .btn.ghost:hover{background:#eef1f6;}
+  .btn.danger{background:var(--coral);}
+  .btn.small{padding:6px 12px;font-size:12px;}
+
+  .grid-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:22px;}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;}
+  .kpi .num{font-family:'Zen Kaku Gothic New';font-weight:900;font-size:26px;color:var(--navy);line-height:1;}
+  .kpi .lbl{font-size:12px;color:var(--sub);margin-top:6px;}
+  .kpi .sub{font-size:11px;margin-top:4px;color:var(--teal);font-weight:600;}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:20px;}
+  .card h2{font-size:15px;margin:0 0 14px;font-weight:700;color:var(--navy);}
+  .card h3{font-size:13px;margin:0 0 10px;font-weight:700;color:var(--navy);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;color:var(--sub);font-weight:600;font-size:11px;letter-spacing:.03em;padding:8px 10px;border-bottom:1px solid var(--line);}
+  td{padding:9px 10px;border-bottom:1px solid #edf0f5;}
+  tr:hover td{background:#f8f9fc;}
+  .badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+  .badge.active{background:#e2f3ee;color:#1f7a5c;}
+  .badge.retiring{background:#faf1e0;color:#a3691a;}
+  .badge.resigned{background:#f5e6e6;color:var(--coral);}
+  .chip{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;background:#eef1f8;color:var(--navy-2);font-weight:600;}
+  .chip.faint{background:#f2f4f8;color:var(--sub);}
+  .row-actions button{background:none;border:none;cursor:pointer;color:var(--sub);font-size:12px;margin-left:8px;}
+  .row-actions button:hover{color:var(--navy);}
+
+  .filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+  .filter-bar select,.filter-bar input{padding:8px 11px;border:1px solid var(--line);border-radius:8px;font-size:12px;font-family:inherit;background:#fff;color:var(--text);}
+  .filter-bar input{flex:1;min-width:140px;}
+
+  .overlay{position:fixed;inset:0;background:rgba(19,37,66,.45);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto;z-index:50;}
+  .overlay.open{display:flex;}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:520px;padding:26px 26px 22px;}
+  .modal h2{margin:0 0 16px;font-size:16px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--sub);margin-bottom:5px;}
+  .field input,.field select,.field textarea{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:13px;font-family:inherit;background:#fbfcfe;}
+  .field textarea{resize:vertical;min-height:50px;}
+  .radio-row{display:flex;gap:8px;flex-wrap:wrap;}
+  .radio-row label{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text);background:#f2f4f8;padding:7px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--line);}
+  .radio-row input{width:auto;}
+  .subfield{border-left:2px solid var(--line);padding-left:12px;margin-top:8px;}
+  .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px;}
+  .hint{font-size:11px;color:var(--sub);margin-top:14px;line-height:1.6;}
+
+  .assign-section{border-top:1px solid var(--line);margin-top:18px;padding-top:16px;}
+  .assign-list{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}
+  .assign-row{display:flex;justify-content:space-between;align-items:center;background:#f7f9fc;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:12px;}
+  .assign-row .a-main{font-weight:600;}
+  .assign-row .a-sub{color:var(--sub);font-size:11px;margin-top:2px;}
+  .assign-row .a-actions button{background:none;border:none;color:var(--sub);cursor:pointer;font-size:11px;margin-left:6px;}
+  .assign-row .a-actions button:hover{color:var(--navy);}
+  .assign-form{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#fbfcfe;border:1px dashed var(--line);border-radius:8px;padding:10px;}
+  .assign-form .full{grid-column:1/-1;}
+  .assign-form label{font-size:11px;color:var(--sub);font-weight:600;display:block;margin-bottom:3px;}
+  .assign-form input,.assign-form select,.assign-form textarea{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:6px;font-size:12px;font-family:inherit;}
+  .assign-form-actions{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end;margin-top:2px;}
+
+  .an-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:20px;}
+  @media(max-width:820px){.an-grid{grid-template-columns:1fr;} .shell{flex-direction:column;} nav.side{width:100%;height:auto;position:relative;display:flex;overflow-x:auto;padding:10px 0;} nav.side .brand{display:none;} nav.side button{white-space:nowrap;border-left:none;border-bottom:3px solid transparent;} nav.side button.active{border-bottom-color:var(--amber);} main{padding:18px;} .assign-form{grid-template-columns:1fr;}}
+
+  .retain-wrap{display:flex;gap:18px;justify-content:space-around;flex-wrap:wrap;margin:6px 0 4px;}
+  .gauge{text-align:center;}
+  .gauge svg{transform:rotate(-90deg);}
+  .gauge .g-num{font-family:'Zen Kaku Gothic New';font-weight:900;font-size:22px;fill:var(--navy);transform:rotate(90deg);}
+  .gauge .g-lbl{font-size:11px;color:var(--sub);margin-top:6px;}
+
+  .bars{display:flex;flex-direction:column;gap:10px;}
+  .bar-row{display:grid;grid-template-columns:96px 1fr 40px;gap:8px;align-items:center;font-size:12px;}
+  .bar-track{background:#eef1f6;border-radius:6px;height:16px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:6px;background:var(--teal);}
+  .bar-fill.hire{background:#3d8f6f;}
+  .bar-fill.resign{background:var(--coral);}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--sub);margin-top:8px;}
+  .legend span{display:inline-flex;align-items:center;gap:5px;}
+  .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+
+  .reason-list{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+  .reason-row{display:grid;grid-template-columns:90px 1fr 24px;gap:10px;align-items:center;font-size:12px;}
+
+  .bar-row.clickable{cursor:pointer;}
+  .bar-row.clickable:hover span:first-child{color:var(--navy);text-decoration:underline;}
+  .drill{display:none;margin:2px 0 6px;padding:8px 10px;background:#f7f9fc;border-radius:8px;border:1px solid var(--line);}
+  .drill.open{display:block;}
+  .drill-row{display:flex;justify-content:space-between;font-size:11.5px;padding:4px 0;border-bottom:1px dashed #e2e6ee;}
+  .drill-row:last-child{border-bottom:none;}
+  .drill-empty{font-size:11.5px;color:var(--sub);}
+
+  .empty{text-align:center;color:var(--sub);font-size:13px;padding:30px 10px;}
+  .sync-row{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--sub);flex-wrap:wrap;}
+  .sync-row input{flex:1;min-width:180px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;font-size:11px;}
+  .status-dot{width:7px;height:7px;border-radius:50%;background:#bbb;display:inline-block;}
+  .status-dot.ok{background:#2f9e6c;}
+  .status-dot.err{background:var(--coral);}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <nav class="side">
+    <div class="brand">稼働者CRM<span>WORKER RETENTION</span></div>
+    <button class="active" data-view="workers">稼働者一覧</button>
+    <button data-view="managers">担当者別サマリー</button>
+    <button data-view="analytics">分析ダッシュボード</button>
+    <button data-view="settings">連携設定</button>
+  </nav>
+
+  <main>
+    <!-- ===== WORKERS VIEW ===== -->
+    <section id="view-workers">
+      <div class="topbar">
+        <div><h1>稼働者一覧</h1><div class="meta" id="workerMeta">-</div></div>
+        <button class="btn" id="btnAddWorker">＋ 稼働者を追加</button>
+      </div>
+
+      <div class="grid-kpi" id="workerKpiRow"></div>
+
+      <div class="filter-bar">
+        <select id="filterManager"><option value="all">担当者: 全て</option></select>
+        <select id="filterStatus">
+          <option value="all">状態: 全て</option>
+          <option value="active">稼働中</option>
+          <option value="retiring">退職予定</option>
+          <option value="resigned">退職済み</option>
+        </select>
+        <select id="filterChannel">
+          <option value="all">経路: 全て</option>
+          <option value="own_all">①自社集客(全体)</option>
+          <optgroup label="─ 自社集客の内訳">
+            <option value="own_jobA">　求人A</option>
+            <option value="own_jobB">　求人B</option>
+            <option value="own_referral">　リファラル</option>
+          </optgroup>
+          <option value="partner_all">②パートナー集客(全体)</option>
+        </select>
+        <input id="filterSearch" placeholder="氏名で検索">
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr><th>氏名</th><th>担当者</th><th>状態</th><th>入職日</th><th>退職(予定)日</th><th>経路</th><th>現在の案件</th><th>在籍期間</th><th></th></tr>
+          </thead>
+          <tbody id="workerTbody"></tbody>
+        </table>
+        <div class="empty" id="workerEmpty" style="display:none;">まだ稼働者が登録されていません。「＋稼働者を追加」から始めましょう。</div>
+      </div>
+    </section>
+
+    <!-- ===== MANAGERS VIEW ===== -->
+    <section id="view-managers" style="display:none;">
+      <div class="topbar">
+        <div><h1>担当者別サマリー</h1><div class="meta">担当者ごとの受け持ち人数・入退職・継続率</div></div>
+        <button class="btn" id="btnAddManager">＋ 担当者を追加</button>
+      </div>
+      <div class="card">
+        <table>
+          <thead>
+            <tr><th>担当者</th><th>受け持ち人数(稼働中)</th><th>累計入職</th><th>累計退職</th><th>継続率</th><th>メモ</th><th></th></tr>
+          </thead>
+          <tbody id="managerTbody"></tbody>
+        </table>
+        <div class="empty" id="managerEmpty" style="display:none;">まだ担当者が登録されていません。</div>
+      </div>
+    </section>
+
+    <!-- ===== ANALYTICS VIEW ===== -->
+    <section id="view-analytics" style="display:none;">
+      <div class="topbar">
+        <div><h1>分析ダッシュボード</h1><div class="meta">継続率・入退職・離職理由・案件退場理由</div></div>
+      </div>
+
+      <div class="an-grid">
+        <div>
+          <div class="card">
+            <h2>継続率(会社全体)</h2>
+            <div class="filter-bar" style="margin-bottom:10px;align-items:center;">
+              <div id="periodChips"></div>
+              <input id="newPeriodInput" type="number" min="1" placeholder="例: 1" style="width:70px;">
+              <button class="btn ghost small" id="btnAddPeriod">＋期間を追加(ヶ月)</button>
+            </div>
+            <div class="retain-wrap" id="gaugeWrap"></div>
+            <p class="hint">「1」を追加すれば1ヶ月以内(短期離脱)の継続率も見られます。チップの×で削除できます。</p>
+          </div>
+          <div class="card">
+            <h2>月別 入職・退職数(直近12ヶ月)</h2>
+            <div class="bars" id="trendBars"></div>
+            <div class="legend">
+              <span><i class="dot" style="background:#3d8f6f"></i>入職</span>
+              <span><i class="dot" style="background:#c85c5c"></i>退職</span>
+            </div>
+          </div>
+          <div class="card">
+            <h2>離職理由の内訳(会社を辞めた理由)</h2>
+            <div class="reason-list" id="reasonList"></div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <h2>入職経路別 継続率</h2>
+            <div class="bars" id="channelBars"></div>
+          </div>
+          <div class="card">
+            <h2>担当者別 継続率</h2>
+            <div class="bars" id="managerBars"></div>
+          </div>
+          <div class="card">
+            <h2>案件別 現在の稼働人数</h2>
+            <div class="bars" id="projectBars"></div>
+          </div>
+          <div class="card">
+            <h2>案件退場理由の内訳</h2>
+            <div class="reason-list" id="leaveReasonList"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== SETTINGS VIEW ===== -->
+    <section id="view-settings" style="display:none;">
+      <div class="topbar"><div><h1>連携設定</h1><div class="meta">Googleスプレッドシートと同期</div></div></div>
+      <div class="card">
+        <h2>Google Apps Script 連携URL</h2>
+        <div class="sync-row">
+          <span class="status-dot" id="syncDot"></span>
+          <input id="gasUrl" placeholder="https://script.google.com/macros/s/xxxx/exec">
+          <button class="btn ghost" id="btnSaveUrl">保存</button>
+          <button class="btn ghost" id="btnSyncNow">今すぐ同期</button>
+        </div>
+        <p class="hint" id="syncStatusText">未設定の場合はこの端末内(ブラウザ)にのみデータが保存されます。URLを設定すると、保存・編集のたびにスプレッドシートへ自動反映されます。</p>
+        <p class="hint">連携用のApps Scriptコードは別ファイル(code.gs)として用意しています。スプレッドシートの「拡張機能 → Apps Script」に貼り付けてウェブアプリとしてデプロイし、発行されたURLをここに入力してください。稼働者マスタ・担当者マスタ・案件配属履歴の3シートが自動で作られます。</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ===== WORKER MODAL ===== -->
+<div class="overlay" id="workerOverlay">
+  <div class="modal">
+    <h2 id="workerModalTitle">稼働者を追加</h2>
+    <input type="hidden" id="w_id">
+
+    <div class="field"><label>氏名</label><input id="w_name" placeholder="佐藤 太郎"></div>
+
+    <div class="field"><label>担当者</label><select id="w_manager"></select></div>
+
+    <div class="field"><label>状態(会社としての在籍状況)</label>
+      <div class="radio-row" id="w_statusRow">
+        <label><input type="radio" name="w_status" value="active" checked>在籍中</label>
+        <label><input type="radio" name="w_status" value="retiring">退職予定</label>
+        <label><input type="radio" name="w_status" value="resigned">退職済み</label>
+      </div>
+    </div>
+
+    <div class="field"><label>入職日</label><input type="date" id="w_hire"></div>
+    <div class="field" id="w_resignDateField" style="display:none;"><label id="w_resignDateLabel">退職日</label><input type="date" id="w_resign">
+      <p class="hint" style="margin-top:6px;">「退職予定」でこの日付を入れておくと、日付を過ぎた時点でアプリを開くと自動的に「退職済み」に切り替わります。</p>
+    </div>
+
+    <div class="field"><label>入職経路</label>
+      <div class="radio-row" id="w_channelTypeRow">
+        <label><input type="radio" name="w_ctype" value="own" checked>①自社集客</label>
+        <label><input type="radio" name="w_ctype" value="partner">②パートナー集客</label>
+      </div>
+      <div class="subfield" id="w_ownDetailWrap">
+        <div class="radio-row" id="w_ownDetailRow">
+          <label><input type="radio" name="w_cdetail_own" value="jobA" checked>求人A</label>
+          <label><input type="radio" name="w_cdetail_own" value="jobB">求人B</label>
+          <label><input type="radio" name="w_cdetail_own" value="referral">リファラル</label>
+        </div>
+      </div>
+      <div class="subfield" id="w_partnerDetailWrap" style="display:none;">
+        <input id="w_partnerName" placeholder="パートナー名">
+      </div>
+    </div>
+
+    <div class="field" id="w_reasonField" style="display:none;">
+      <label>離職理由(会社を辞める理由)</label>
+      <select id="w_reason">
+        <option value="給与">給与</option>
+        <option value="人間関係">人間関係</option>
+        <option value="業務内容">業務内容</option>
+        <option value="家庭都合">家庭都合</option>
+        <option value="他社転職">他社転職</option>
+        <option value="その他">その他</option>
+      </select>
+      <textarea id="w_reasonNote" placeholder="補足メモ(任意)" style="margin-top:8px;"></textarea>
+    </div>
+
+    <div class="field"><label>メモ</label><textarea id="w_memo" placeholder="任意"></textarea></div>
+
+    <!-- ===== 案件配属履歴 ===== -->
+    <div class="assign-section" id="assignSection">
+      <h3>案件配属履歴</h3>
+      <div class="assign-list" id="assignList"></div>
+      <div class="assign-form">
+        <input type="hidden" id="a_id">
+        <div class="full"><label>案件名</label><input id="a_project" placeholder="〇〇コールセンター案件"></div>
+        <div><label>配属開始日</label><input type="date" id="a_start"></div>
+        <div><label>退場日(在籍中は空欄)</label><input type="date" id="a_end"></div>
+        <div class="full"><label>退場理由</label>
+          <select id="a_reason">
+            <option value="">-</option>
+            <option value="契約満了">契約満了</option>
+            <option value="クライアント都合">クライアント都合</option>
+            <option value="本人希望">本人希望</option>
+            <option value="勤怠・品質">勤怠・品質</option>
+            <option value="その他">その他</option>
+          </select>
+        </div>
+        <div class="full"><label>メモ</label><textarea id="a_memo" placeholder="任意"></textarea></div>
+        <div class="assign-form-actions">
+          <button class="btn ghost small" id="a_btnCancel" style="display:none;">編集キャンセル</button>
+          <button class="btn small" id="a_btnSave">追加</button>
+        </div>
+      </div>
+      <p class="hint" id="assignHint" style="display:none;">先に稼働者を保存すると、案件配属履歴を追加できるようになります。</p>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn danger" id="w_btnDelete" style="display:none;margin-right:auto;">削除</button>
+      <button class="btn ghost" id="w_btnCancel">キャンセル</button>
+      <button class="btn" id="w_btnSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MANAGER MODAL ===== -->
+<div class="overlay" id="managerOverlay">
+  <div class="modal">
+    <h2 id="managerModalTitle">担当者を追加</h2>
+    <input type="hidden" id="m_id">
+    <div class="field"><label>担当者名</label><input id="m_name" placeholder="鈴木 一郎"></div>
+    <div class="field"><label>メモ</label><textarea id="m_memo" placeholder="任意"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn danger" id="m_btnDelete" style="display:none;margin-right:auto;">削除</button>
+      <button class="btn ghost" id="m_btnCancel">キャンセル</button>
+      <button class="btn" id="m_btnSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ state ============ */
+let workers = [];
+let managers = [];
+let assignments = [];
+let gasUrl = '';
+let editingWorkerId = null;
+let editingManagerId = null;
+let editingAssignmentId = null;
+let retentionPeriods = [3,6,12];
+
+const $ = (id) => document.getElementById(id);
+
+/* ============ storage ============ */
+async function loadLocal(){
+  try{ const r = await window.storage.get('crm-workers'); workers = r? JSON.parse(r.value):[]; }catch(e){ workers=[]; }
+  try{ const r = await window.storage.get('crm-managers'); managers = r? JSON.parse(r.value):[]; }catch(e){ managers=[]; }
+  try{ const r = await window.storage.get('crm-assignments'); assignments = r? JSON.parse(r.value):[]; }catch(e){ assignments=[]; }
+  try{ const u = await window.storage.get('crm-gas-url'); gasUrl = u? u.value:''; }catch(e){ gasUrl=''; }
+  try{ const p = await window.storage.get('crm-retention-periods'); if(p) retentionPeriods = JSON.parse(p.value); }catch(e){}
+}
+async function savePeriodsLocal(){ try{ await window.storage.set('crm-retention-periods', JSON.stringify(retentionPeriods)); }catch(e){} }
+async function saveWorkersLocal(){ try{ await window.storage.set('crm-workers', JSON.stringify(workers)); }catch(e){} }
+async function saveManagersLocal(){ try{ await window.storage.set('crm-managers', JSON.stringify(managers)); }catch(e){} }
+async function saveAssignmentsLocal(){ try{ await window.storage.set('crm-assignments', JSON.stringify(assignments)); }catch(e){} }
+
+/* ============ GAS sync ============ */
+async function syncRecord(entity, record){
+  if(!gasUrl) return;
+  setDot(null);
+  try{
+    await fetch(gasUrl, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({entity, action:'save', record})});
+    setDot(true);
+  }catch(e){ setDot(false); }
+}
+async function syncDeleteRecord(entity, id){
+  if(!gasUrl) return;
+  try{
+    await fetch(gasUrl, {method:'POST', mode:'no-cors', headers:{'Content-Type':'text/plain'}, body: JSON.stringify({entity, action:'delete', id})});
+    setDot(true);
+  }catch(e){ setDot(false); }
+}
+async function pullFromSheet(){
+  if(!gasUrl){ alert('先にGAS連携URLを保存してください'); return; }
+  try{
+    const [wr, mr, ar] = await Promise.all([
+      fetch(gasUrl + '?entity=worker').then(r=>r.json()),
+      fetch(gasUrl + '?entity=manager').then(r=>r.json()),
+      fetch(gasUrl + '?entity=assignment').then(r=>r.json())
+    ]);
+    if(Array.isArray(wr)) workers = wr;
+    if(Array.isArray(mr)) managers = mr;
+    if(Array.isArray(ar)) assignments = ar;
+    await saveWorkersLocal(); await saveManagersLocal(); await saveAssignmentsLocal();
+    renderAll();
+    setDot(true);
+  }catch(e){ setDot(false); alert('同期に失敗しました。URLを確認してください。'); }
+}
+function setDot(ok){
+  const d = $('syncDot');
+  d.className = 'status-dot' + (ok===true?' ok':ok===false?' err':'');
+}
+
+/* ============ helpers ============ */
+function uid(p){ return (p||'id') + '_' + Date.now() + Math.random().toString(36).slice(2,7); }
+function monthsBetween(a,b){
+  const d1=new Date(a), d2=new Date(b||new Date());
+  return (d2.getFullYear()-d1.getFullYear())*12 + (d2.getMonth()-d1.getMonth()) + (d2.getDate()>=d1.getDate()?0:-1);
+}
+function fmtTenure(s){
+  const m = monthsBetween(s.hireDate, s.resignDate || new Date());
+  if(m<0) return '-';
+  const y=Math.floor(m/12), mm=m%12;
+  return (y>0? y+'年':'') + mm+'ヶ月';
+}
+function channelLabel(s){
+  if(s.channelType==='own'){
+    const map={jobA:'求人A', jobB:'求人B', referral:'リファラル'};
+    return '自社/' + (map[s.channelDetail]||s.channelDetail);
+  }
+  return 'パートナー/' + (s.channelDetail||'-');
+}
+function statusMeta(s){
+  if(s.status==='retiring') return {cls:'retiring', label:'退職予定'};
+  if(s.status==='resigned') return {cls:'resigned', label:'退職済み'};
+  return {cls:'active', label:'稼働中'};
+}
+function managerName(id){
+  const m = managers.find(x=>x.id===id);
+  return m? m.name : '(未割当)';
+}
+function currentAssignment(workerId){
+  const list = assignments.filter(a=>a.workerId===workerId && !a.endDate);
+  if(!list.length) return null;
+  return [...list].sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''))[0];
+}
+function matchesChannelFilter(s, val){
+  if(val==='all') return true;
+  if(val==='own_all') return s.channelType==='own';
+  if(val==='partner_all') return s.channelType==='partner';
+  if(val.startsWith('own_')) return s.channelType==='own' && s.channelDetail===val.replace('own_','');
+  return true;
+}
+function populateManagerSelects(){
+  const opts = managers.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+  $('w_manager').innerHTML = opts || '<option value="">(担当者未登録)</option>';
+  $('filterManager').innerHTML = '<option value="all">担当者: 全て</option>' + managers.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
+}
+
+/* ============ render: workers ============ */
+function renderWorkers(){
+  populateManagerSelects();
+  const fManager = $('filterManager').value;
+  const fStatus = $('filterStatus').value;
+  const fChannel = $('filterChannel').value;
+  const fSearch = $('filterSearch').value.trim().toLowerCase();
+
+  const filtered = workers.filter(s=>
+    (fManager==='all' || s.managerId===fManager) &&
+    (fStatus==='all' || s.status===fStatus) &&
+    matchesChannelFilter(s, fChannel) &&
+    (!fSearch || (s.name||'').toLowerCase().includes(fSearch))
+  );
+
+  const tbody = $('workerTbody');
+  tbody.innerHTML='';
+  $('workerEmpty').style.display = filtered.length? 'none':'block';
+
+  const sorted = [...filtered].sort((a,b)=> (b.hireDate||'').localeCompare(a.hireDate||''));
+  for(const s of sorted){
+    const sm = statusMeta(s);
+    const cur = currentAssignment(s.id);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${s.name||'(名称未設定)'}</td>
+      <td>${managerName(s.managerId)}</td>
+      <td><span class="badge ${sm.cls}">${sm.label}</span></td>
+      <td>${s.hireDate||'-'}</td>
+      <td>${s.resignDate||'-'}</td>
+      <td><span class="chip">${channelLabel(s)}</span></td>
+      <td>${cur? `<span class="chip">${cur.projectName}</span>` : `<span class="chip faint">未配属</span>`}</td>
+      <td>${fmtTenure(s)}</td>
+      <td class="row-actions">
+        <button data-edit="${s.id}">編集</button>
+        ${s.status==='active' ? `<button data-quitquick="${s.id}">退職にする</button>` : ''}
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+  tbody.querySelectorAll('[data-edit]').forEach(b=> b.addEventListener('click', ()=> openWorkerModal(b.dataset.edit)));
+  tbody.querySelectorAll('[data-quitquick]').forEach(b=> b.addEventListener('click', ()=> quickMarkLeaving(b.dataset.quitquick)));
+
+  const active = workers.filter(s=>s.status==='active');
+  const now = new Date();
+  const thisMonthKey = now.toISOString().slice(0,7);
+  const nextMonthKey = new Date(now.getFullYear(), now.getMonth()+1, 1).toISOString().slice(0,7);
+  const thisMonthHires = workers.filter(s=> s.hireDate && s.hireDate.slice(0,7)===thisMonthKey).length;
+  const nextMonthLeaving = workers.filter(s=> s.resignDate && s.resignDate.slice(0,7)===nextMonthKey).length;
+  const alreadyLeft = workers.filter(s=>s.status==='resigned').length;
+
+  $('workerKpiRow').innerHTML = `
+    <div class="kpi"><div class="num">${active.length}</div><div class="lbl">稼働中の人数</div></div>
+    <div class="kpi"><div class="num">${thisMonthHires}</div><div class="lbl sub">今月の入職</div></div>
+    <div class="kpi"><div class="num" style="color:#a3691a;">${nextMonthLeaving}</div><div class="lbl" style="color:#a3691a;font-weight:600;">来月退職予定</div></div>
+    <div class="kpi"><div class="num" style="color:var(--coral);">${alreadyLeft}</div><div class="lbl" style="color:var(--coral);font-weight:600;">離脱済み(累計)</div></div>
+  `;
+  $('workerMeta').textContent = `${filtered.length} / 全 ${workers.length} 件`;
+}
+
+/* ============ render: managers ============ */
+function renderManagers(){
+  const tbody = $('managerTbody');
+  tbody.innerHTML='';
+  $('managerEmpty').style.display = managers.length? 'none':'block';
+
+  for(const m of managers){
+    const list = workers.filter(s=>s.managerId===m.id);
+    const activeCount = list.filter(s=>s.status==='active').length;
+    const resignedCount = list.filter(s=>s.status==='resigned').length;
+    const rate = list.length? Math.round(list.filter(s=>s.status!=='resigned').length/list.length*100) : null;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${m.name}</td>
+      <td>${activeCount}人</td>
+      <td>${list.length}人</td>
+      <td>${resignedCount}人</td>
+      <td>${rate===null?'-':rate+'%'}</td>
+      <td>${m.memo||''}</td>
+      <td class="row-actions"><button data-medit="${m.id}">編集</button></td>
+    `;
+    tbody.appendChild(tr);
+  }
+  tbody.querySelectorAll('[data-medit]').forEach(b=> b.addEventListener('click', ()=> openManagerModal(b.dataset.medit)));
+}
+
+/* ============ render: analytics ============ */
+function retentionRate(months){
+  const eligible = workers.filter(s=> s.hireDate && monthsBetween(s.hireDate, new Date()) >= months);
+  if(!eligible.length) return null;
+  const retained = eligible.filter(s=> !s.resignDate || monthsBetween(s.hireDate, s.resignDate) >= months);
+  return Math.round(retained.length/eligible.length*100);
+}
+function gaugeSvg(pct, label){
+  const r=34, c=2*Math.PI*r;
+  const val = pct===null? 0 : pct;
+  const off = c - (val/100*c);
+  const color = pct===null? '#ccc' : pct>=70? '#2f9e6c' : pct>=40? '#d98e3f' : '#c85c5c';
+  return `<div class="gauge">
+    <svg width="90" height="90" viewBox="0 0 90 90">
+      <circle cx="45" cy="45" r="${r}" fill="none" stroke="#eef1f6" stroke-width="9"/>
+      <circle cx="45" cy="45" r="${r}" fill="none" stroke="${color}" stroke-width="9" stroke-linecap="round"
+        stroke-dasharray="${c}" stroke-dashoffset="${off}"/>
+      <text x="45" y="49" text-anchor="middle" class="g-num">${pct===null?'-':pct+'%'}</text>
+    </svg>
+    <div class="g-lbl">${label}</div>
+  </div>`;
+}
+function renderPeriodChips(){
+  const sorted = [...retentionPeriods].sort((a,b)=>a-b);
+  $('periodChips').innerHTML = sorted.map(m=>
+    `<span class="chip" style="margin-right:6px;">${m}ヶ月<button data-rmperiod="${m}" style="border:none;background:none;color:var(--sub);cursor:pointer;margin-left:4px;font-weight:700;">×</button></span>`
+  ).join('') || '<span class="hint" style="margin:0;">期間なし</span>';
+  $('periodChips').querySelectorAll('[data-rmperiod]').forEach(b=> b.addEventListener('click', async ()=>{
+    const v = Number(b.dataset.rmperiod);
+    retentionPeriods = retentionPeriods.filter(x=>x!==v);
+    await savePeriodsLocal();
+    renderAnalytics();
+  }));
+}
+function rateOf(list){
+  const active = list.filter(s=>s.status!=='resigned').length;
+  return list.length? Math.round(active/list.length*100) : null;
+}
+function drillListHtml(list){
+  if(!list.length) return '<div class="drill-empty">対象者なし</div>';
+  return [...list].sort((a,b)=>(b.hireDate||'').localeCompare(a.hireDate||'')).map(s=>{
+    const sm = statusMeta(s);
+    return `<div class="drill-row"><span>${s.name||'(名称未設定)'} <span style="color:var(--sub);">/ ${managerName(s.managerId)}</span></span><span><span class="badge ${sm.cls}" style="margin-right:6px;">${sm.label}</span>${fmtTenure(s)}</span></div>`;
+  }).join('');
+}
+function bindDrillClicks(container){
+  container.querySelectorAll('[data-drill]').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const el = $('drill-'+row.dataset.drill);
+      if(el) el.classList.toggle('open');
+    });
+  });
+}
+function renderAnalytics(){
+  renderPeriodChips();
+  const sortedPeriods = [...retentionPeriods].sort((a,b)=>a-b);
+  $('gaugeWrap').innerHTML = sortedPeriods.length
+    ? sortedPeriods.map(m=> gaugeSvg(retentionRate(m), m+'ヶ月時点')).join('')
+    : '<div class="empty">測定期間が設定されていません</div>';
+
+  const months=[];
+  const d = new Date(); d.setDate(1);
+  for(let i=11;i>=0;i--){ const dt = new Date(d.getFullYear(), d.getMonth()-i, 1); months.push(dt.toISOString().slice(0,7)); }
+  const hireCounts = months.map(m=> workers.filter(s=> s.hireDate && s.hireDate.slice(0,7)===m).length);
+  const resignCounts = months.map(m=> workers.filter(s=> s.resignDate && s.resignDate.slice(0,7)===m).length);
+  const maxV = Math.max(1, ...hireCounts, ...resignCounts);
+  $('trendBars').innerHTML = months.map((m,i)=>`
+    <div class="bar-row">
+      <span>${m.slice(2).replace('-','/')}</span>
+      <div>
+        <div class="bar-track" style="margin-bottom:3px;"><div class="bar-fill hire" style="width:${hireCounts[i]/maxV*100}%"></div></div>
+        <div class="bar-track"><div class="bar-fill resign" style="width:${resignCounts[i]/maxV*100}%"></div></div>
+      </div>
+      <span>${hireCounts[i]}/${resignCounts[i]}</span>
+    </div>
+  `).join('');
+
+  // company-level resign reasons
+  const resigned = workers.filter(s=>s.status==='resigned');
+  const reasonCounts = {};
+  resigned.forEach(s=>{ const r=s.resignReason||'未記入'; reasonCounts[r]=(reasonCounts[r]||0)+1; });
+  const maxR = Math.max(1, ...Object.values(reasonCounts));
+  const rEntries = Object.entries(reasonCounts).sort((a,b)=>b[1]-a[1]);
+  $('reasonList').innerHTML = rEntries.length ? rEntries.map(([r,c])=>`
+    <div class="reason-row">
+      <span>${r}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${c/maxR*100}%;background:var(--coral);"></div></div>
+      <span>${c}</span>
+    </div>`).join('') : '<div class="empty">退職者がまだいません</div>';
+
+  // channel: own vs partner, 2-tier
+  const ownList = workers.filter(s=>s.channelType==='own');
+  const partnerList = workers.filter(s=>s.channelType==='partner');
+  const partnerNames = [...new Set(partnerList.map(s=> s.channelDetail || '(パートナー名未入力)'))];
+  const ownChildren = [
+    {key:'jobA', label:'求人A', list: ownList.filter(s=>s.channelDetail==='jobA')},
+    {key:'jobB', label:'求人B', list: ownList.filter(s=>s.channelDetail==='jobB')},
+    {key:'referral', label:'リファラル', list: ownList.filter(s=>s.channelDetail==='referral')},
+  ];
+  const partnerChildren = partnerNames.map((n,idx)=>({key:'p_'+idx, label:n, list: partnerList.filter(s=>(s.channelDetail||'(パートナー名未入力)')===n)}));
+
+  function groupHtml(groupLabel, groupList, children){
+    const r = rateOf(groupList);
+    let html = `<div class="bar-row" style="font-weight:700;">
+      <span>${groupLabel}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${r||0}%;background:var(--navy-2);"></div></div>
+      <span>${r===null?'-':r+'%'}</span>
+    </div>`;
+    for(const c of children){
+      const cr = rateOf(c.list);
+      html += `<div class="bar-row clickable" data-drill="${c.key}" style="padding-left:14px;">
+        <span>└ ${c.label}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${cr||0}%"></div></div>
+        <span>${cr===null?'-':cr+'%'}</span>
+      </div>
+      <div class="drill" id="drill-${c.key}">${drillListHtml(c.list)}</div>`;
+    }
+    return html;
+  }
+  const chEl = $('channelBars');
+  chEl.innerHTML = groupHtml('①自社集客', ownList, ownChildren) + `<div style="height:6px;"></div>` +
+    groupHtml('②パートナー集客', partnerList, partnerChildren) +
+    `<div class="hint">在籍率 = 現在稼働中 ÷ その区分の累計採用数。内訳をタップすると個人別に開きます。</div>`;
+  bindDrillClicks(chEl);
+
+  // manager retention
+  const mgEl = $('managerBars');
+  if(!managers.length){
+    mgEl.innerHTML = '<div class="empty">担当者が未登録です</div>';
+  }else{
+    let mhtml = '';
+    managers.forEach((m,idx)=>{
+      const list = workers.filter(s=>s.managerId===m.id);
+      const r = rateOf(list);
+      mhtml += `<div class="bar-row clickable" data-drill="mg_${idx}">
+        <span>${m.name}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${r||0}%;background:var(--amber);"></div></div>
+        <span>${r===null?'-':r+'%'}</span>
+      </div>
+      <div class="drill" id="drill-mg_${idx}">${drillListHtml(list)}</div>`;
+    });
+    mgEl.innerHTML = mhtml + `<div class="hint">在籍率 = 現在稼働中 ÷ その担当者の累計受け持ち数。名前をタップすると個人別に開きます。</div>`;
+    bindDrillClicks(mgEl);
+  }
+
+  // 案件別 現在の稼働人数
+  const ongoing = assignments.filter(a=>!a.endDate);
+  const projCounts = {};
+  ongoing.forEach(a=>{ const p=a.projectName||'(案件名未入力)'; projCounts[p]=(projCounts[p]||0)+1; });
+  const maxP = Math.max(1, ...Object.values(projCounts));
+  const pEntries = Object.entries(projCounts).sort((a,b)=>b[1]-a[1]);
+  $('projectBars').innerHTML = pEntries.length ? pEntries.map(([p,c])=>`
+    <div class="bar-row">
+      <span>${p}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${c/maxP*100}%;background:var(--teal);"></div></div>
+      <span>${c}</span>
+    </div>`).join('') : '<div class="empty">現在配属中の案件がありません</div>';
+
+  // 案件退場理由
+  const left = assignments.filter(a=>a.endDate);
+  const leaveCounts = {};
+  left.forEach(a=>{ const r=a.leaveReason||'未記入'; leaveCounts[r]=(leaveCounts[r]||0)+1; });
+  const maxL = Math.max(1, ...Object.values(leaveCounts));
+  const lEntries = Object.entries(leaveCounts).sort((a,b)=>b[1]-a[1]);
+  $('leaveReasonList').innerHTML = lEntries.length ? lEntries.map(([r,c])=>`
+    <div class="reason-row">
+      <span>${r}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${c/maxL*100}%;background:var(--amber);"></div></div>
+      <span>${c}</span>
+    </div>`).join('') : '<div class="empty">案件を退場した記録がまだありません</div>';
+}
+
+function renderAll(){ renderWorkers(); renderManagers(); renderAnalytics(); }
+
+/* ============ worker modal ============ */
+function resetWorkerForm(){
+  $('w_id').value=''; $('w_name').value=''; $('w_hire').value=''; $('w_resign').value='';
+  $('w_memo').value=''; $('w_partnerName').value=''; $('w_reasonNote').value='';
+  document.querySelector('input[name=w_status][value=active]').checked=true;
+  document.querySelector('input[name=w_ctype][value=own]').checked=true;
+  document.querySelector('input[name=w_cdetail_own][value=jobA]').checked=true;
+  $('w_reason').value='給与';
+  $('w_btnDelete').style.display='none';
+  toggleWorkerStatusFields(); toggleWorkerChannelFields();
+}
+function toggleWorkerStatusFields(){
+  const val = document.querySelector('input[name=w_status]:checked').value;
+  const show = val!=='active';
+  $('w_resignDateField').style.display = show? 'block':'none';
+  $('w_reasonField').style.display = show? 'block':'none';
+  $('w_resignDateLabel').textContent = val==='retiring' ? '退職予定日' : '退職日';
+}
+function toggleWorkerChannelFields(){
+  const isOwn = document.querySelector('input[name=w_ctype]:checked').value==='own';
+  $('w_ownDetailWrap').style.display = isOwn? 'block':'none';
+  $('w_partnerDetailWrap').style.display = isOwn? 'none':'block';
+}
+
+/* ---- assignment sub-CRUD within worker modal ---- */
+function resetAssignmentForm(){
+  $('a_id').value=''; $('a_project').value=''; $('a_start').value=''; $('a_end').value=''; $('a_reason').value=''; $('a_memo').value='';
+  $('a_btnCancel').style.display='none';
+  $('a_btnSave').textContent='追加';
+  editingAssignmentId = null;
+}
+function renderAssignmentList(){
+  const list = assignments.filter(a=>a.workerId===editingWorkerId);
+  const sorted = [...list].sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''));
+  $('assignList').innerHTML = sorted.length ? sorted.map(a=>{
+    const ongoing = !a.endDate;
+    return `<div class="assign-row">
+      <div>
+        <div class="a-main">${a.projectName||'(案件名未入力)'} ${ongoing?'<span class="badge active">稼働中</span>':'<span class="badge resigned">退場済</span>'}</div>
+        <div class="a-sub">${a.startDate||'-'} 〜 ${a.endDate||'(継続中)'}${a.leaveReason? ' / 退場理由: '+a.leaveReason : ''}</div>
+      </div>
+      <div class="a-actions">
+        <button data-aedit="${a.id}">編集</button>
+        <button data-adelete="${a.id}">削除</button>
+      </div>
+    </div>`;
+  }).join('') : '<div class="drill-empty">配属履歴はまだありません</div>';
+
+  $('assignList').querySelectorAll('[data-aedit]').forEach(b=> b.addEventListener('click', ()=> loadAssignmentToForm(b.dataset.aedit)));
+  $('assignList').querySelectorAll('[data-adelete]').forEach(b=> b.addEventListener('click', ()=> deleteAssignment(b.dataset.adelete)));
+}
+function loadAssignmentToForm(id){
+  const a = assignments.find(x=>x.id===id);
+  if(!a) return;
+  editingAssignmentId = id;
+  $('a_id').value=a.id; $('a_project').value=a.projectName||''; $('a_start').value=a.startDate||'';
+  $('a_end').value=a.endDate||''; $('a_reason').value=a.leaveReason||''; $('a_memo').value=a.memo||'';
+  $('a_btnCancel').style.display='inline-block';
+  $('a_btnSave').textContent='更新';
+}
+async function saveAssignment(){
+  if(!editingWorkerId){ alert('先に稼働者を保存してください'); return; }
+  const projectName = $('a_project').value.trim();
+  if(!projectName){ alert('案件名を入力してください'); return; }
+  const record = {
+    id: editingAssignmentId || uid('a'),
+    workerId: editingWorkerId,
+    projectName,
+    startDate: $('a_start').value,
+    endDate: $('a_end').value,
+    leaveReason: $('a_end').value ? $('a_reason').value : '',
+    memo: $('a_memo').value.trim(),
+    updatedAt: new Date().toISOString()
+  };
+  const idx = assignments.findIndex(x=>x.id===record.id);
+  if(idx>=0) assignments[idx]=record; else assignments.push(record);
+  await saveAssignmentsLocal();
+  resetAssignmentForm();
+  renderAssignmentList();
+  renderAll();
+  syncRecord('assignment', record);
+}
+async function deleteAssignment(id){
+  if(!confirm('この配属履歴を削除しますか?')) return;
+  assignments = assignments.filter(x=>x.id!==id);
+  await saveAssignmentsLocal();
+  resetAssignmentForm();
+  renderAssignmentList();
+  renderAll();
+  syncDeleteRecord('assignment', id);
+}
+
+function openWorkerModal(id){
+  populateManagerSelects();
+  resetWorkerForm();
+  resetAssignmentForm();
+  if(id){
+    const s = workers.find(x=>x.id===id);
+    if(!s) return;
+    editingWorkerId = id;
+    $('workerModalTitle').textContent = '稼働者を編集';
+    $('w_id').value=s.id; $('w_name').value=s.name||''; $('w_hire').value=s.hireDate||'';
+    $('w_resign').value=s.resignDate||''; $('w_memo').value=s.memo||'';
+    if(s.managerId) $('w_manager').value = s.managerId;
+    document.querySelector(`input[name=w_status][value=${s.status||'active'}]`).checked=true;
+    document.querySelector(`input[name=w_ctype][value=${s.channelType||'own'}]`).checked=true;
+    if(s.channelType==='own'){
+      document.querySelector(`input[name=w_cdetail_own][value=${s.channelDetail||'jobA'}]`).checked=true;
+    }else{
+      $('w_partnerName').value=s.channelDetail||'';
+    }
+    $('w_reason').value = s.resignReason||'給与';
+    $('w_reasonNote').value = s.resignReasonNote||'';
+    $('w_btnDelete').style.display='inline-block';
+    toggleWorkerStatusFields(); toggleWorkerChannelFields();
+    $('assignSection').style.display='block';
+    $('assignHint').style.display='none';
+    renderAssignmentList();
+  }else{
+    editingWorkerId = null;
+    $('workerModalTitle').textContent = '稼働者を追加';
+    $('assignList').innerHTML='';
+    $('assignHint').style.display='block';
+  }
+  $('workerOverlay').classList.add('open');
+}
+function closeWorkerModal(){ $('workerOverlay').classList.remove('open'); }
+
+function quickMarkLeaving(id){
+  openWorkerModal(id);
+  document.querySelector('input[name=w_status][value=retiring]').checked = true;
+  toggleWorkerStatusFields();
+  setTimeout(()=> $('w_resign').focus(), 50);
+}
+
+/* 退職予定日を過ぎたら自動的に「退職済み」へ切り替える */
+async function autoTransitionRetiring(){
+  const todayStr = new Date().toISOString().slice(0,10);
+  let changed = false;
+  workers.forEach(s=>{
+    if(s.status==='retiring' && s.resignDate && s.resignDate <= todayStr){
+      s.status = 'resigned';
+      s.updatedAt = new Date().toISOString();
+      changed = true;
+      syncRecord('worker', s);
+    }
+  });
+  if(changed) await saveWorkersLocal();
+  return changed;
+}
+
+async function saveWorker(){
+  const status = document.querySelector('input[name=w_status]:checked').value;
+  const ctype = document.querySelector('input[name=w_ctype]:checked').value;
+  const name = $('w_name').value.trim();
+  if(!name){ alert('氏名を入力してください'); return; }
+  if(!$('w_hire').value){ alert('入職日を入力してください'); return; }
+
+  const isNew = !editingWorkerId;
+  const record = {
+    id: editingWorkerId || uid('w'),
+    name,
+    managerId: $('w_manager').value || '',
+    status,
+    hireDate: $('w_hire').value,
+    resignDate: status!=='active' ? $('w_resign').value : '',
+    channelType: ctype,
+    channelDetail: ctype==='own' ? document.querySelector('input[name=w_cdetail_own]:checked').value : $('w_partnerName').value.trim(),
+    resignReason: status!=='active' ? $('w_reason').value : '',
+    resignReasonNote: status!=='active' ? $('w_reasonNote').value.trim() : '',
+    memo: $('w_memo').value.trim(),
+    updatedAt: new Date().toISOString()
+  };
+  const idx = workers.findIndex(s=>s.id===record.id);
+  if(idx>=0) workers[idx]=record; else workers.push(record);
+  await saveWorkersLocal();
+  syncRecord('worker', record);
+
+  if(isNew){
+    // 新規保存後は同じモーダルを編集モードに切り替え、案件履歴を追加できるようにする
+    editingWorkerId = record.id;
+    $('workerModalTitle').textContent = '稼働者を編集';
+    $('w_btnDelete').style.display='inline-block';
+    $('assignSection').style.display='block';
+    $('assignHint').style.display='none';
+    renderAssignmentList();
+    renderAll();
+  }else{
+    renderAll();
+    closeWorkerModal();
+  }
+}
+async function deleteWorker(){
+  if(!editingWorkerId) return;
+  if(!confirm('この稼働者データを削除しますか?(案件配属履歴も削除されます)')) return;
+  workers = workers.filter(s=>s.id!==editingWorkerId);
+  const relatedAssignments = assignments.filter(a=>a.workerId===editingWorkerId);
+  assignments = assignments.filter(a=>a.workerId!==editingWorkerId);
+  await saveWorkersLocal(); await saveAssignmentsLocal();
+  renderAll();
+  closeWorkerModal();
+  syncDeleteRecord('worker', editingWorkerId);
+  relatedAssignments.forEach(a=> syncDeleteRecord('assignment', a.id));
+}
+
+/* ============ manager modal ============ */
+function openManagerModal(id){
+  $('m_id').value=''; $('m_name').value=''; $('m_memo').value=''; $('m_btnDelete').style.display='none';
+  if(id){
+    const m = managers.find(x=>x.id===id);
+    if(!m) return;
+    editingManagerId = id;
+    $('managerModalTitle').textContent = '担当者を編集';
+    $('m_id').value=m.id; $('m_name').value=m.name||''; $('m_memo').value=m.memo||'';
+    $('m_btnDelete').style.display='inline-block';
+  }else{
+    editingManagerId = null;
+    $('managerModalTitle').textContent = '担当者を追加';
+  }
+  $('managerOverlay').classList.add('open');
+}
+function closeManagerModal(){ $('managerOverlay').classList.remove('open'); }
+async function saveManager(){
+  const name = $('m_name').value.trim();
+  if(!name){ alert('担当者名を入力してください'); return; }
+  const record = { id: editingManagerId || uid('m'), name, memo: $('m_memo').value.trim(), updatedAt: new Date().toISOString() };
+  const idx = managers.findIndex(m=>m.id===record.id);
+  if(idx>=0) managers[idx]=record; else managers.push(record);
+  await saveManagersLocal();
+  renderAll();
+  closeManagerModal();
+  syncRecord('manager', record);
+}
+async function deleteManager(){
+  if(!editingManagerId) return;
+  const affected = workers.filter(s=>s.managerId===editingManagerId).length;
+  const msg = affected ? `この担当者を削除すると、受け持っている${affected}名の稼働者が「未割当」になります。続けますか?` : 'この担当者を削除しますか?';
+  if(!confirm(msg)) return;
+  managers = managers.filter(m=>m.id!==editingManagerId);
+  workers.forEach(s=>{ if(s.managerId===editingManagerId) s.managerId=''; });
+  await saveManagersLocal(); await saveWorkersLocal();
+  renderAll();
+  closeManagerModal();
+  syncDeleteRecord('manager', editingManagerId);
+}
+
+/* ============ nav ============ */
+function switchView(view){
+  document.querySelectorAll('nav.side button').forEach(b=> b.classList.toggle('active', b.dataset.view===view));
+  ['workers','managers','analytics','settings'].forEach(v=> $('view-'+v).style.display = v===view?'block':'none');
+  if(view==='analytics') renderAnalytics();
+  if(view==='managers') renderManagers();
+  if(view==='workers') renderWorkers();
+}
+
+/* ============ init ============ */
+document.querySelectorAll('nav.side button').forEach(b=> b.addEventListener('click', ()=> switchView(b.dataset.view)));
+$('btnAddWorker').addEventListener('click', ()=> openWorkerModal(null));
+$('w_btnCancel').addEventListener('click', closeWorkerModal);
+$('w_btnSave').addEventListener('click', saveWorker);
+$('w_btnDelete').addEventListener('click', deleteWorker);
+$('workerOverlay').addEventListener('click', (e)=>{ if(e.target.id==='workerOverlay') closeWorkerModal(); });
+document.querySelectorAll('input[name=w_status]').forEach(r=> r.addEventListener('change', toggleWorkerStatusFields));
+document.querySelectorAll('input[name=w_ctype]').forEach(r=> r.addEventListener('change', toggleWorkerChannelFields));
+$('a_btnSave').addEventListener('click', saveAssignment);
+$('a_btnCancel').addEventListener('click', resetAssignmentForm);
+
+$('btnAddManager').addEventListener('click', ()=> openManagerModal(null));
+$('m_btnCancel').addEventListener('click', closeManagerModal);
+$('m_btnSave').addEventListener('click', saveManager);
+$('m_btnDelete').addEventListener('click', deleteManager);
+$('managerOverlay').addEventListener('click', (e)=>{ if(e.target.id==='managerOverlay') closeManagerModal(); });
+
+$('btnSaveUrl').addEventListener('click', async ()=>{
+  gasUrl = $('gasUrl').value.trim();
+  try{ await window.storage.set('crm-gas-url', gasUrl); }catch(e){}
+  $('syncStatusText').textContent = gasUrl ? '連携URLを保存しました。以後の保存・編集は自動でスプレッドシートへ送信されます。' : '未設定の場合はこの端末内(ブラウザ)にのみデータが保存されます。';
+});
+$('btnSyncNow').addEventListener('click', pullFromSheet);
+$('filterManager').addEventListener('change', renderWorkers);
+$('filterStatus').addEventListener('change', renderWorkers);
+$('filterChannel').addEventListener('change', renderWorkers);
+$('filterSearch').addEventListener('input', renderWorkers);
+$('btnAddPeriod').addEventListener('click', async ()=>{
+  const v = Number($('newPeriodInput').value);
+  if(!v || v<=0){ alert('1以上の数値(ヶ月)を入力してください'); return; }
+  if(!retentionPeriods.includes(v)) retentionPeriods.push(v);
+  $('newPeriodInput').value='';
+  await savePeriodsLocal();
+  renderAnalytics();
+});
+
+(async function init(){
+  await loadLocal();
+  await autoTransitionRetiring();
+  $('gasUrl').value = gasUrl;
+  if(gasUrl) $('syncStatusText').textContent = '連携URLが設定されています。';
+  renderAll();
+})();
+</script>
+</body>
+</html>
