@@ -53,6 +53,8 @@
   .card h2{font-size:15px;margin:0 0 14px;font-weight:700;color:var(--navy);}
   .card h3{font-size:13px;margin:0 0 10px;font-weight:700;color:var(--navy);}
 
+  .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -22px;padding:0 22px;}
+  .table-scroll table{min-width:760px;}
   table{width:100%;border-collapse:collapse;font-size:13px;}
   th{text-align:left;color:var(--sub);font-weight:600;font-size:11px;letter-spacing:.03em;padding:8px 10px;border-bottom:1px solid var(--line);}
   td{padding:9px 10px;border-bottom:1px solid #edf0f5;}
@@ -63,8 +65,13 @@
   .badge.resigned{background:#f5e6e6;color:var(--coral);}
   .chip{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;background:#eef1f8;color:var(--navy-2);font-weight:600;}
   .chip.faint{background:#f2f4f8;color:var(--sub);}
-  .row-actions button{background:none;border:none;cursor:pointer;color:var(--sub);font-size:12px;margin-left:8px;}
-  .row-actions button:hover{color:var(--navy);}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap;}
+  .row-actions button{background:#eef1f6;border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--navy-2);font-size:11px;font-weight:600;padding:5px 10px;margin-left:0;}
+  .row-actions button:hover{background:#e2e6ee;color:var(--navy);}
+  .row-actions button.quit{background:#f5e6e6;color:var(--coral);border-color:#f0d6d6;}
+  .row-actions button.quit:hover{background:#efd6d6;}
+  .row-actions button.primary{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .row-actions button.primary:hover{background:var(--navy-2);}
 
   .filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
   .filter-bar select,.filter-bar input{padding:8px 11px;border:1px solid var(--line);border-radius:8px;font-size:12px;font-family:inherit;background:#fff;color:var(--text);}
@@ -99,7 +106,7 @@
   .assign-form-actions{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end;margin-top:2px;}
 
   .an-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:20px;}
-  @media(max-width:820px){.an-grid{grid-template-columns:1fr;} .shell{flex-direction:column;} nav.side{width:100%;height:auto;position:relative;display:flex;overflow-x:auto;padding:10px 0;} nav.side .brand{display:none;} nav.side button{white-space:nowrap;border-left:none;border-bottom:3px solid transparent;} nav.side button.active{border-bottom-color:var(--amber);} main{padding:18px;} .assign-form{grid-template-columns:1fr;}}
+  @media(max-width:820px){.an-grid{grid-template-columns:1fr;} .shell{flex-direction:column;} nav.side{width:100%;height:auto;position:relative;display:flex;overflow-x:auto;padding:10px 0;} nav.side .brand{display:none;} nav.side button{white-space:nowrap;border-left:none;border-bottom:3px solid transparent;} nav.side button.active{border-bottom-color:var(--amber);} main{padding:14px;} .assign-form{grid-template-columns:1fr;} .card{padding:16px;} .table-scroll{margin:0 -16px;padding:0 16px;} .grid-kpi{grid-template-columns:repeat(2,1fr);} .kpi{padding:12px 14px;} .kpi .num{font-size:21px;}}
 
   .retain-wrap{display:flex;gap:18px;justify-content:space-around;flex-wrap:wrap;margin:6px 0 4px;}
   .gauge{text-align:center;}
@@ -127,6 +134,24 @@
   .drill-row{display:flex;justify-content:space-between;font-size:11.5px;padding:4px 0;border-bottom:1px dashed #e2e6ee;}
   .drill-row:last-child{border-bottom:none;}
   .drill-empty{font-size:11.5px;color:var(--sub);}
+
+  .ms-dropdown{position:relative;}
+  .ms-dropdown summary{list-style:none;padding:8px 14px;border:1px solid var(--line);border-radius:8px;font-size:12px;background:#fff;cursor:pointer;display:inline-block;color:var(--text);}
+  .ms-dropdown summary::-webkit-details-marker{display:none;}
+  .ms-dropdown summary::after{content:' ▾'; color:var(--sub);}
+  .ms-dropdown[open] summary::after{content:' ▴';}
+  .ms-panel{position:absolute;top:calc(100% + 4px);left:0;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(19,37,66,.12);padding:10px;z-index:20;min-width:200px;max-height:260px;overflow-y:auto;}
+  .ms-panel label{display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 4px;cursor:pointer;border-radius:6px;}
+  .ms-panel label:hover{background:#f2f4f8;}
+  .ms-panel input{width:auto;}
+  .ms-panel hr{border:none;border-top:1px solid var(--line);margin:4px 0;}
+
+  .stack-bar{display:flex;height:26px;border-radius:8px;overflow:hidden;background:#eef1f6;}
+  .stack-seg{height:100%;cursor:pointer;transition:opacity .15s;}
+  .stack-seg:hover{opacity:.8;}
+  .stack-legend-row{display:flex;align-items:center;gap:8px;font-size:12px;padding:5px 0;cursor:pointer;}
+  .stack-legend-row .sw{width:10px;height:10px;border-radius:3px;flex:0 0 auto;}
+  .stack-legend-row .lbl-txt{flex:1;}
 
   .empty{text-align:center;color:var(--sub);font-size:13px;padding:30px 10px;}
   .sync-row{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--sub);flex-wrap:wrap;}
@@ -187,12 +212,14 @@
       </div>
 
       <div class="card">
+        <div class="table-scroll">
         <table>
           <thead>
             <tr><th>氏名</th><th>担当者</th><th>状態</th><th>入職日</th><th>退職(予定)日</th><th>経路</th><th>現在の案件</th><th>在籍期間</th><th></th></tr>
           </thead>
           <tbody id="workerTbody"></tbody>
         </table>
+        </div>
         <div class="empty" id="workerEmpty" style="display:none;">まだ稼働者が登録されていません。「＋稼働者を追加」から始めましょう。</div>
       </div>
     </section>
@@ -203,13 +230,21 @@
         <div><h1>担当者別サマリー</h1><div class="meta">担当者ごとの受け持ち人数・入退職・継続率</div></div>
         <button class="btn" id="btnAddManager">＋ 担当者を追加</button>
       </div>
+      <div class="filter-bar">
+        <details class="ms-dropdown" id="mgFilterDropdown">
+          <summary id="mgFilterSummary">担当者: 全体</summary>
+          <div class="ms-panel" id="mgFilterPanel"></div>
+        </details>
+      </div>
       <div class="card">
+        <div class="table-scroll">
         <table>
           <thead>
             <tr><th>担当者</th><th>受け持ち人数(稼働中)</th><th>累計入職</th><th>累計退職</th><th>継続率</th><th>稼働平均年月</th><th>退職平均年月</th><th>メモ</th><th></th></tr>
           </thead>
           <tbody id="managerTbody"></tbody>
         </table>
+        </div>
         <div class="empty" id="managerEmpty" style="display:none;">まだ担当者が登録されていません。</div>
       </div>
     </section>
@@ -235,6 +270,12 @@
             </div>
             <div class="retain-wrap" id="gaugeWrap"></div>
             <p class="hint">「1」を追加すれば1ヶ月以内(短期離脱)の継続率も見られます。チップの×で削除できます。カッコ内は対象人数です。</p>
+          </div>
+          <div class="card">
+            <h2>在籍期間の分布<span style="font-weight:400;color:var(--sub);">(今いる/いた人が何ヶ月時点か)</span></h2>
+            <div id="tenureStack"></div>
+            <div id="tenureLegend" style="margin-top:10px;"></div>
+            <p class="hint">上で設定した期間の区切りをもとに、稼働者を在籍月数で区分けしています。色をタップすると対象者が開きます。</p>
           </div>
           <div class="card">
             <h2>離職率・平均勤続</h2>
@@ -384,6 +425,46 @@
       <button class="btn danger" id="m_btnDelete" style="display:none;margin-right:auto;">削除</button>
       <button class="btn ghost" id="m_btnCancel">キャンセル</button>
       <button class="btn" id="m_btnSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== QUIT (退職処理) MODAL ===== -->
+<div class="overlay" id="quitOverlay">
+  <div class="modal">
+    <h2>退職処理</h2>
+    <input type="hidden" id="q_id">
+    <div class="card" style="background:#f7f9fc;padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px;" id="q_name">-</div>
+      <div style="font-size:12px;color:var(--sub);line-height:1.9;">
+        担当者: <span id="q_manager">-</span><br>
+        入職日: <span id="q_hireDisp">-</span><br>
+        入職経路: <span id="q_channelDisp">-</span>
+      </div>
+    </div>
+
+    <div class="field"><label>状態</label>
+      <div class="radio-row" id="q_statusRow">
+        <label><input type="radio" name="q_status" value="retiring" checked>退職予定</label>
+        <label><input type="radio" name="q_status" value="resigned">退職済み</label>
+      </div>
+    </div>
+    <div class="field"><label id="q_resignDateLabel">退職予定日</label><input type="date" id="q_resign"></div>
+    <div class="field"><label>離職理由</label>
+      <select id="q_reason">
+        <option value="現場不満">現場不満</option>
+        <option value="条件">条件</option>
+        <option value="給与">給与</option>
+        <option value="他社転職">他社転職</option>
+        <option value="音信不通">音信不通</option>
+        <option value="その他">その他</option>
+      </select>
+    </div>
+    <div class="field"><label>補足メモ</label><textarea id="q_reasonNote" placeholder="任意"></textarea></div>
+
+    <div class="modal-actions">
+      <button class="btn ghost" id="q_btnCancel">キャンセル</button>
+      <button class="btn" id="q_btnSave">保存</button>
     </div>
   </div>
 </div>
@@ -574,8 +655,8 @@ function renderWorkers(){
       <td>${cur? `<span class="chip">${cur.projectName}</span>` : `<span class="chip faint">未配属</span>`}</td>
       <td>${fmtTenure(s)}</td>
       <td class="row-actions">
-        <button data-edit="${s.id}">編集</button>
-        ${s.status==='active' ? `<button data-quitquick="${s.id}">退職にする</button>` : ''}
+        <button class="primary" data-edit="${s.id}">✎ 編集</button>
+        ${s.status==='active' ? `<button class="quit" data-quitquick="${s.id}">退職にする</button>` : ''}
       </td>
     `;
     tbody.appendChild(tr);
@@ -601,13 +682,59 @@ function renderWorkers(){
 }
 
 /* ============ render: managers ============ */
+let managerSummaryFilter = [];
+let mgFilterPanelSignature = '';
+
+function updateMgFilterSummary(){
+  const summary = $('mgFilterSummary');
+  if(managerSummaryFilter.length===0){ summary.textContent = '担当者: 全体'; return; }
+  if(managerSummaryFilter.length===1){ summary.textContent = '担当者: '+managerName(managerSummaryFilter[0]); return; }
+  summary.textContent = `担当者: ${managerName(managerSummaryFilter[0])} 他${managerSummaryFilter.length-1}件`;
+}
+function ensureMgFilterPanel(){
+  const sig = managers.map(m=>m.id).join(',');
+  if(sig === mgFilterPanelSignature) { updateMgFilterSummary(); return; }
+  mgFilterPanelSignature = sig;
+  // 削除された担当者が選択中フィルターに残っていたら除外
+  managerSummaryFilter = managerSummaryFilter.filter(id=> managers.some(m=>m.id===id));
+
+  const panel = $('mgFilterPanel');
+  const allChecked = managerSummaryFilter.length===0;
+  let html = `<label><input type="checkbox" id="mgAllCk" ${allChecked?'checked':''}> 全体</label>`;
+  if(managers.length) html += '<hr>' + managers.map(m=>`<label><input type="checkbox" class="mgCk" value="${m.id}" ${managerSummaryFilter.includes(m.id)?'checked':''}> ${m.name}</label>`).join('');
+  panel.innerHTML = html;
+
+  $('mgAllCk').addEventListener('change', (e)=>{
+    if(e.target.checked){
+      managerSummaryFilter = [];
+      panel.querySelectorAll('.mgCk').forEach(ck=> ck.checked=false);
+      updateMgFilterSummary();
+      renderManagerTable();
+    }else if(managerSummaryFilter.length===0){
+      e.target.checked = true; // 何も選ばれていない状態は許可しない
+    }
+  });
+  panel.querySelectorAll('.mgCk').forEach(ck=> ck.addEventListener('change', ()=>{
+    const checked = [...panel.querySelectorAll('.mgCk:checked')].map(x=>x.value);
+    managerSummaryFilter = checked;
+    $('mgAllCk').checked = checked.length===0;
+    updateMgFilterSummary();
+    renderManagerTable();
+  }));
+  updateMgFilterSummary();
+}
 function renderManagers(){
   populateManagerSelects();
+  ensureMgFilterPanel();
+  renderManagerTable();
+}
+function renderManagerTable(){
   const tbody = $('managerTbody');
   tbody.innerHTML='';
-  $('managerEmpty').style.display = managers.length? 'none':'block';
+  const shownManagers = managerSummaryFilter.length ? managers.filter(m=>managerSummaryFilter.includes(m.id)) : managers;
+  $('managerEmpty').style.display = shownManagers.length? 'none':'block';
 
-  for(const m of managers){
+  for(const m of shownManagers){
     const list = workers.filter(s=>s.managerId===m.id);
     const activeList = list.filter(s=>s.status!=='resigned');
     const resignedList = list.filter(s=>s.status==='resigned');
@@ -635,7 +762,7 @@ function renderManagers(){
       <td>${monthsToStr(avgActive)}</td>
       <td>${monthsToStr(avgResigned)}</td>
       <td>${m.memo||''}</td>
-      <td class="row-actions"><button data-mtoggle="${m.id}">内訳</button><button data-medit="${m.id}">編集</button></td>
+      <td class="row-actions"><button data-mtoggle="${m.id}">▾ 内訳</button><button class="primary" data-medit="${m.id}">✎ 編集</button></td>
     `;
     tbody.appendChild(tr);
 
@@ -734,6 +861,59 @@ function populateAnalyticsManagerFilter(){
   if(current==='all' || managers.some(m=>m.id===current)) sel.value = current;
   analyticsManagerFilter = sel.value;
 }
+function tenureBuckets(list, periods){
+  if(!periods.length) return [];
+  const sorted = [...periods].sort((a,b)=>a-b);
+  const boundaries = [0, ...sorted, Infinity];
+  const buckets = [];
+  for(let i=0;i<boundaries.length-1;i++){
+    const lo = boundaries[i], hi = boundaries[i+1];
+    const label = hi===Infinity ? `${lo}ヶ月〜` : (lo===0 ? `〜${hi}ヶ月` : `${lo}〜${hi}ヶ月`);
+    buckets.push({label, lo, hi, list: []});
+  }
+  list.forEach(s=>{
+    const m = monthsBetween(s.hireDate, s.resignDate || new Date());
+    if(m<0 || !s.hireDate) return;
+    const b = buckets.find(b=> m>=b.lo && m<b.hi);
+    if(b) b.list.push(s);
+  });
+  return buckets;
+}
+function renderTenureDistribution(scopedWorkers){
+  const sortedPeriods = [...retentionPeriods].sort((a,b)=>a-b);
+  const buckets = tenureBuckets(scopedWorkers, sortedPeriods);
+  const stackEl = $('tenureStack'), legendEl = $('tenureLegend');
+  if(!sortedPeriods.length){
+    stackEl.innerHTML = '<div class="empty">上の「継続率」で期間を1つ以上設定してください</div>';
+    legendEl.innerHTML=''; return;
+  }
+  if(!scopedWorkers.length){
+    stackEl.innerHTML = '<div class="empty">対象データがありません</div>';
+    legendEl.innerHTML=''; return;
+  }
+  const colors = ['#2f8f9d','#3d8f6f','#d98e3f','#c85c5c','#7c5cbf','#5c7cbf','#c75c9e'];
+  const total = scopedWorkers.length;
+  stackEl.innerHTML = `<div class="stack-bar">` + buckets.map((b,i)=>{
+    const pct = total? (b.list.length/total*100) : 0;
+    if(pct<=0) return '';
+    return `<div class="stack-seg" data-tdrill="tb_${i}" style="width:${pct}%;background:${colors[i%colors.length]};" title="${b.label}: ${b.list.length}人"></div>`;
+  }).join('') + `</div>`;
+  legendEl.innerHTML = buckets.map((b,i)=>{
+    const pct = total? Math.round(b.list.length/total*100) : 0;
+    return `<div class="stack-legend-row" data-tdrill="tb_${i}">
+      <span class="sw" style="background:${colors[i%colors.length]};"></span>
+      <span class="lbl-txt">${b.label}</span>
+      <span>${b.list.length}人(${pct}%)</span>
+    </div>
+    <div class="drill" id="drill-tb_${i}">${drillListHtml(b.list)}</div>`;
+  }).join('');
+  [stackEl, legendEl].forEach(el=>{
+    el.querySelectorAll('[data-tdrill]').forEach(row=> row.addEventListener('click', ()=>{
+      const drillEl = $('drill-'+row.dataset.tdrill);
+      if(drillEl) drillEl.classList.toggle('open');
+    }));
+  });
+}
 function renderAnalytics(){
   populateAnalyticsManagerFilter();
   const scopedWorkers = analyticsManagerFilter==='all' ? workers : workers.filter(w=>w.managerId===analyticsManagerFilter);
@@ -746,6 +926,7 @@ function renderAnalytics(){
   $('gaugeWrap').innerHTML = sortedPeriods.length
     ? sortedPeriods.map(m=> gaugeSvg(retentionDetail(m, scopedWorkers), m+'ヶ月時点')).join('')
     : '<div class="empty">測定期間が設定されていません</div>';
+  renderTenureDistribution(scopedWorkers);
 
   // 離職率・平均勤続
   const resignedList = scopedWorkers.filter(s=>s.status==='resigned');
@@ -1018,10 +1199,42 @@ function openWorkerModal(id){
 function closeWorkerModal(){ $('workerOverlay').classList.remove('open'); }
 
 function quickMarkLeaving(id){
-  openWorkerModal(id);
-  document.querySelector('input[name=w_status][value=retiring]').checked = true;
-  toggleWorkerStatusFields();
-  setTimeout(()=> $('w_resign').focus(), 50);
+  const s = workers.find(x=>x.id===id);
+  if(!s) return;
+  $('q_id').value = s.id;
+  $('q_name').textContent = s.name || '(名称未設定)';
+  $('q_manager').textContent = managerName(s.managerId);
+  $('q_hireDisp').textContent = formatDateJP(s.hireDate);
+  $('q_channelDisp').textContent = channelLabel(s);
+  document.querySelector('input[name=q_status][value=retiring]').checked = true;
+  $('q_resign').value = '';
+  $('q_reason').value = '現場不満';
+  $('q_reasonNote').value = '';
+  toggleQuitStatusLabel();
+  $('quitOverlay').classList.add('open');
+  setTimeout(()=> $('q_resign').focus(), 50);
+}
+function toggleQuitStatusLabel(){
+  const val = document.querySelector('input[name=q_status]:checked').value;
+  $('q_resignDateLabel').textContent = val==='retiring' ? '退職予定日' : '退職日';
+}
+function closeQuitModal(){ $('quitOverlay').classList.remove('open'); }
+async function saveQuit(){
+  const id = $('q_id').value;
+  const s = workers.find(x=>x.id===id);
+  if(!s) return;
+  const status = document.querySelector('input[name=q_status]:checked').value;
+  const resignDate = $('q_resign').value;
+  if(!resignDate){ alert('退職(予定)日を入力してください'); return; }
+  s.status = status;
+  s.resignDate = resignDate;
+  s.resignReason = $('q_reason').value;
+  s.resignReasonNote = $('q_reasonNote').value.trim();
+  s.updatedAt = new Date().toISOString();
+  await saveWorkersLocal();
+  syncRecord('worker', s);
+  renderAll();
+  closeQuitModal();
 }
 
 /* 退職予定日を過ぎたら自動的に「退職済み」へ切り替える */
@@ -1169,6 +1382,10 @@ $('m_btnCancel').addEventListener('click', closeManagerModal);
 $('m_btnSave').addEventListener('click', saveManager);
 $('m_btnDelete').addEventListener('click', deleteManager);
 $('managerOverlay').addEventListener('click', (e)=>{ if(e.target.id==='managerOverlay') closeManagerModal(); });
+$('q_btnCancel').addEventListener('click', closeQuitModal);
+$('q_btnSave').addEventListener('click', saveQuit);
+$('quitOverlay').addEventListener('click', (e)=>{ if(e.target.id==='quitOverlay') closeQuitModal(); });
+document.querySelectorAll('input[name=q_status]').forEach(r=> r.addEventListener('change', toggleQuitStatusLabel));
 
 $('filterManager').addEventListener('change', renderWorkers);
 $('filterStatus').addEventListener('change', renderWorkers);
