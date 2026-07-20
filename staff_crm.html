@@ -153,6 +153,11 @@
   .stack-legend-row .sw{width:10px;height:10px;border-radius:3px;flex:0 0 auto;}
   .stack-legend-row .lbl-txt{flex:1;}
 
+  .scope-tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1px solid var(--line);}
+  .scope-tabs button{background:none;border:none;padding:10px 6px;font-size:13px;font-weight:600;color:var(--sub);cursor:pointer;font-family:inherit;border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .scope-tabs button.active{color:var(--navy);border-bottom-color:var(--navy);}
+  .scope-tabs button:hover{color:var(--navy-2);}
+
   .empty{text-align:center;color:var(--sub);font-size:13px;padding:30px 10px;}
   .sync-row{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--sub);flex-wrap:wrap;}
   .sync-row input{flex:1;min-width:180px;padding:6px 9px;border:1px solid var(--line);border-radius:6px;font-size:11px;}
@@ -182,6 +187,11 @@
         <button class="btn" id="btnAddWorker">＋ 稼働者を追加</button>
       </div>
 
+      <div class="scope-tabs" id="workerScopeTabs">
+        <button data-scope="own" class="scope-tab active">①自社稼働者</button>
+        <button data-scope="partner" class="scope-tab">②パートナー稼働者</button>
+      </div>
+
       <div class="grid-kpi" id="workerKpiRow"></div>
 
       <div class="filter-bar">
@@ -192,16 +202,7 @@
           <option value="retiring">退職予定</option>
           <option value="resigned">退職済み</option>
         </select>
-        <select id="filterChannel">
-          <option value="all">経路: 全て</option>
-          <option value="own_all">①自社集客(全体)</option>
-          <optgroup label="─ 自社集客の内訳">
-            <option value="own_jobA">　Zone</option>
-            <option value="own_jobB">　NC</option>
-            <option value="own_referral">　リファラル</option>
-          </optgroup>
-          <option value="partner_all">②パートナー集客(全体)</option>
-        </select>
+        <select id="filterChannel"></select>
         <input id="filterSearch" placeholder="氏名で検索">
         <select id="sortOrder">
           <option value="hire_desc">入職日: 新しい順</option>
@@ -230,6 +231,10 @@
         <div><h1>担当者別サマリー</h1><div class="meta">担当者ごとの受け持ち人数・入退職・継続率</div></div>
         <button class="btn" id="btnAddManager">＋ 担当者を追加</button>
       </div>
+      <div class="scope-tabs" id="managerScopeTabs">
+        <button data-scope="own" class="scope-tab active">①自社稼働者</button>
+        <button data-scope="partner" class="scope-tab">②パートナー稼働者</button>
+      </div>
       <div class="filter-bar">
         <details class="ms-dropdown" id="mgFilterDropdown">
           <summary id="mgFilterSummary">担当者: 全体</summary>
@@ -253,6 +258,11 @@
     <section id="view-analytics" style="display:none;">
       <div class="topbar">
         <div><h1>分析ダッシュボード</h1><div class="meta">継続率・入退職・離職理由・案件退場理由</div></div>
+      </div>
+
+      <div class="scope-tabs" id="analyticsScopeTabs">
+        <button data-scope="own" class="scope-tab active">①自社稼働者</button>
+        <button data-scope="partner" class="scope-tab">②パートナー稼働者</button>
       </div>
 
       <div class="filter-bar" style="margin-bottom:6px;">
@@ -297,11 +307,11 @@
         </div>
         <div>
           <div class="card">
-            <h2>入職経路別 継続率(自社/パートナー別)</h2>
+            <h2>入職経路別 継続率</h2>
             <div class="bars" id="channelBars"></div>
           </div>
           <div class="card" id="managerBarsCard">
-            <h2>担当者別 継続率(自社/パートナー別)</h2>
+            <h2>担当者別 継続率</h2>
             <div class="bars" id="managerBars"></div>
           </div>
           <div class="card">
@@ -597,9 +607,8 @@ function currentAssignment(workerId){
 }
 function matchesChannelFilter(s, val){
   if(val==='all') return true;
-  if(val==='own_all') return s.channelType==='own';
-  if(val==='partner_all') return s.channelType==='partner';
   if(val.startsWith('own_')) return s.channelType==='own' && s.channelDetail===val.replace('own_','');
+  if(val.startsWith('partner_')) return s.channelType==='partner' && s.channelDetail===decodeURIComponent(val.replace('partner_',''));
   return true;
 }
 function populateManagerSelects(){
@@ -615,13 +624,41 @@ function populateManagerSelects(){
 }
 
 /* ============ render: workers ============ */
+let workerScopeTab = lsGet('crm-worker-scope-tab') || 'own';
+let filterChannelSignature = '';
+
+function populateFilterChannelForTab(){
+  const scoped = workers.filter(s=>s.channelType===workerScopeTab);
+  let optsHtml = '';
+  let sig = '';
+  if(workerScopeTab==='own'){
+    sig = 'own';
+    optsHtml = `<option value="all">経路: 全て</option>
+      <option value="own_jobA">Zone</option>
+      <option value="own_jobB">NC</option>
+      <option value="own_referral">リファラル</option>`;
+  }else{
+    const partnerNames = [...new Set(scoped.map(s=> s.channelDetail || '(パートナー名未入力)'))].sort();
+    sig = 'partner:' + partnerNames.join(',');
+    optsHtml = `<option value="all">パートナー: 全て</option>` +
+      partnerNames.map(n=> `<option value="partner_${encodeURIComponent(n)}">${n}</option>`).join('');
+  }
+  if(sig === filterChannelSignature) return;
+  filterChannelSignature = sig;
+  const current = $('filterChannel').value;
+  $('filterChannel').innerHTML = optsHtml;
+  if([...$('filterChannel').options].some(o=>o.value===current)) $('filterChannel').value = current;
+}
+
 function renderWorkers(){
+  populateFilterChannelForTab();
   const fManager = $('filterManager').value;
   const fStatus = $('filterStatus').value;
   const fChannel = $('filterChannel').value;
   const fSearch = $('filterSearch').value.trim().toLowerCase();
 
-  const filtered = workers.filter(s=>
+  const scoped = workers.filter(s=>s.channelType===workerScopeTab);
+  const filtered = scoped.filter(s=>
     (fManager==='all' || s.managerId===fManager) &&
     (fStatus==='all' || s.status===fStatus) &&
     matchesChannelFilter(s, fChannel) &&
@@ -664,13 +701,13 @@ function renderWorkers(){
   tbody.querySelectorAll('[data-edit]').forEach(b=> b.addEventListener('click', ()=> openWorkerModal(b.dataset.edit)));
   tbody.querySelectorAll('[data-quitquick]').forEach(b=> b.addEventListener('click', ()=> quickMarkLeaving(b.dataset.quitquick)));
 
-  const active = workers.filter(s=>s.status==='active');
+  const active = scoped.filter(s=>s.status!=='resigned');
   const now = new Date();
   const thisMonthKey = now.toISOString().slice(0,7);
   const nextMonthKey = new Date(now.getFullYear(), now.getMonth()+1, 1).toISOString().slice(0,7);
-  const thisMonthHires = workers.filter(s=> s.hireDate && s.hireDate.slice(0,7)===thisMonthKey).length;
-  const nextMonthLeaving = workers.filter(s=> s.resignDate && s.resignDate.slice(0,7)===nextMonthKey).length;
-  const alreadyLeft = workers.filter(s=>s.status==='resigned').length;
+  const thisMonthHires = scoped.filter(s=> s.hireDate && s.hireDate.slice(0,7)===thisMonthKey).length;
+  const nextMonthLeaving = scoped.filter(s=> s.resignDate && s.resignDate.slice(0,7)===nextMonthKey).length;
+  const alreadyLeft = scoped.filter(s=>s.status==='resigned').length;
 
   $('workerKpiRow').innerHTML = `
     <div class="kpi"><div class="num">${active.length}</div><div class="lbl">稼働中の人数</div></div>
@@ -678,7 +715,19 @@ function renderWorkers(){
     <div class="kpi"><div class="num" style="color:#a3691a;">${nextMonthLeaving}</div><div class="lbl" style="color:#a3691a;font-weight:600;">来月退職予定</div></div>
     <div class="kpi"><div class="num" style="color:var(--coral);">${alreadyLeft}</div><div class="lbl" style="color:var(--coral);font-weight:600;">離脱済み(累計)</div></div>
   `;
-  $('workerMeta').textContent = `${filtered.length} / 全 ${workers.length} 件`;
+  const tabLabel = workerScopeTab==='own' ? '自社' : 'パートナー';
+  $('workerMeta').textContent = `${tabLabel} 全${scoped.length}件中 ${filtered.length}件を表示中(会社全体: ${workers.length}件)`;
+}
+function syncScopeTabsUI(){
+  document.querySelectorAll('.scope-tabs .scope-tab').forEach(b=> b.classList.toggle('active', b.dataset.scope===workerScopeTab));
+}
+function switchGlobalScope(scope){
+  workerScopeTab = scope;
+  lsSet('crm-worker-scope-tab', scope);
+  syncScopeTabsUI();
+  filterChannelSignature = ''; // タブが変わったら経路の選択肢を作り直す
+  $('filterChannel').value = 'all';
+  renderAll();
 }
 
 /* ============ render: managers ============ */
@@ -735,22 +784,12 @@ function renderManagerTable(){
   $('managerEmpty').style.display = shownManagers.length? 'none':'block';
 
   for(const m of shownManagers){
-    const list = workers.filter(s=>s.managerId===m.id);
+    const list = workers.filter(s=>s.managerId===m.id && s.channelType===workerScopeTab);
     const activeList = list.filter(s=>s.status!=='resigned');
     const resignedList = list.filter(s=>s.status==='resigned');
     const rate = list.length? Math.round(activeList.length/list.length*100) : null;
     const avgActive = avgMonths(activeList, ()=> new Date());
     const avgResigned = avgMonths(resignedList, s=> s.resignDate);
-
-    const ownList = list.filter(s=>s.channelType==='own');
-    const partnerList = list.filter(s=>s.channelType==='partner');
-    const sub = (l)=>({
-      count: l.length,
-      active: l.filter(s=>s.status!=='resigned').length,
-      resigned: l.filter(s=>s.status==='resigned').length,
-      rate: l.length? Math.round(l.filter(s=>s.status!=='resigned').length/l.length*100) : null
-    });
-    const ownStat = sub(ownList), partnerStat = sub(partnerList);
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -762,26 +801,11 @@ function renderManagerTable(){
       <td>${monthsToStr(avgActive)}</td>
       <td>${monthsToStr(avgResigned)}</td>
       <td>${m.memo||''}</td>
-      <td class="row-actions"><button data-mtoggle="${m.id}">▾ 内訳</button><button class="primary" data-medit="${m.id}">✎ 編集</button></td>
+      <td class="row-actions"><button class="primary" data-medit="${m.id}">✎ 編集</button></td>
     `;
     tbody.appendChild(tr);
-
-    const detailTr = document.createElement('tr');
-    detailTr.id = 'mdetail-'+m.id;
-    detailTr.style.display = 'none';
-    detailTr.innerHTML = `<td colspan="9" style="background:#f7f9fc;">
-      <div style="display:flex;gap:24px;flex-wrap:wrap;padding:6px 4px;font-size:12px;">
-        <div><strong>①自社集客</strong> ─ 受け持ち:${ownStat.active}人 / 累計:${ownStat.count}人 / 退職:${ownStat.resigned}人 / 継続率:${ownStat.rate===null?'-':ownStat.rate+'%'}</div>
-        <div><strong>②パートナー集客</strong> ─ 受け持ち:${partnerStat.active}人 / 累計:${partnerStat.count}人 / 退職:${partnerStat.resigned}人 / 継続率:${partnerStat.rate===null?'-':partnerStat.rate+'%'}</div>
-      </div>
-    </td>`;
-    tbody.appendChild(detailTr);
   }
   tbody.querySelectorAll('[data-medit]').forEach(b=> b.addEventListener('click', ()=> openManagerModal(b.dataset.medit)));
-  tbody.querySelectorAll('[data-mtoggle]').forEach(b=> b.addEventListener('click', ()=>{
-    const row = $('mdetail-'+b.dataset.mtoggle);
-    if(row) row.style.display = row.style.display==='none' ? 'table-row' : 'none';
-  }));
 }
 
 /* ============ render: analytics ============ */
@@ -915,11 +939,14 @@ function renderTenureDistribution(scopedWorkers){
   });
 }
 function renderAnalytics(){
+  syncScopeTabsUI();
   populateAnalyticsManagerFilter();
-  const scopedWorkers = analyticsManagerFilter==='all' ? workers : workers.filter(w=>w.managerId===analyticsManagerFilter);
+  const tabScoped = workers.filter(w=>w.channelType===workerScopeTab);
+  const scopedWorkers = analyticsManagerFilter==='all' ? tabScoped : tabScoped.filter(w=>w.managerId===analyticsManagerFilter);
   const scopedIds = new Set(scopedWorkers.map(w=>w.id));
   const scopedAssignments = assignments.filter(a=>scopedIds.has(a.workerId));
-  $('analyticsScopeLabel').textContent = analyticsManagerFilter==='all' ? '(会社全体)' : '('+managerName(analyticsManagerFilter)+')';
+  const scopeLabel = workerScopeTab==='own' ? '自社' : 'パートナー';
+  $('analyticsScopeLabel').textContent = analyticsManagerFilter==='all' ? `(${scopeLabel}・全体)` : `(${scopeLabel}・${managerName(analyticsManagerFilter)})`;
 
   renderPeriodChips();
   const sortedPeriods = [...retentionPeriods].sort((a,b)=>a-b);
@@ -973,16 +1000,16 @@ function renderAnalytics(){
     <div class="drill" id="drill-rr_${idx}">${drillListHtmlForResign(list)}</div>`).join('') : '<div class="empty">退職者がまだいません</div>';
   bindDrillClicks(reasonEl);
 
-  // channel: own vs partner, 2-tier(スコープ内で集計)
-  const ownList = scopedWorkers.filter(s=>s.channelType==='own');
-  const partnerList = scopedWorkers.filter(s=>s.channelType==='partner');
-  const partnerNames = [...new Set(partnerList.map(s=> s.channelDetail || '(パートナー名未入力)'))];
-  const ownChildren = [
-    {key:'jobA', label:'Zone', list: ownList.filter(s=>s.channelDetail==='jobA')},
-    {key:'jobB', label:'NC', list: ownList.filter(s=>s.channelDetail==='jobB')},
-    {key:'referral', label:'リファラル', list: ownList.filter(s=>s.channelDetail==='referral')},
-  ];
-  const partnerChildren = partnerNames.map((n,idx)=>({key:'p_'+idx, label:n, list: partnerList.filter(s=>(s.channelDetail||'(パートナー名未入力)')===n)}));
+  // channel breakdown(現在のタブ内でのみ集計)
+  const children = workerScopeTab==='own'
+    ? [
+        {key:'jobA', label:'Zone', list: scopedWorkers.filter(s=>s.channelDetail==='jobA')},
+        {key:'jobB', label:'NC', list: scopedWorkers.filter(s=>s.channelDetail==='jobB')},
+        {key:'referral', label:'リファラル', list: scopedWorkers.filter(s=>s.channelDetail==='referral')},
+      ]
+    : [...new Set(scopedWorkers.map(s=> s.channelDetail || '(パートナー名未入力)'))].map((n,idx)=>({
+        key:'p_'+idx, label:n, list: scopedWorkers.filter(s=>(s.channelDetail||'(パートナー名未入力)')===n)
+      }));
 
   function groupHtml(groupLabel, groupList, children, keyPrefix){
     const r = rateOf(groupList);
@@ -1004,12 +1031,11 @@ function renderAnalytics(){
     return html;
   }
   const chEl = $('channelBars');
-  chEl.innerHTML = groupHtml('①自社集客', ownList, ownChildren, 'ch_') + `<div style="height:6px;"></div>` +
-    groupHtml('②パートナー集客', partnerList, partnerChildren, 'ch_') +
-    `<div class="hint">在籍率 = 現在稼働中 ÷ その区分の累計採用数。内訳をタップすると個人別に開きます。</div>`;
+  chEl.innerHTML = groupHtml(scopeLabel+'集客(全体)', scopedWorkers, children, 'ch_') +
+    `<div class="hint">在籍率 = 現在稼働中 ÷ 累計採用数。内訳をタップすると個人別に開きます。</div>`;
   bindDrillClicks(chEl);
 
-  // manager retention (全体表示の時だけ、担当者ごとに自社/パートナー内訳を表示)
+  // manager retention(現在のタブ内でのみ集計、自社/パートナーの内訳は出さない)
   const mgCard = $('managerBarsCard');
   const mgEl = $('managerBars');
   if(analyticsManagerFilter!=='all'){
@@ -1021,15 +1047,16 @@ function renderAnalytics(){
     }else{
       let mhtml = '';
       managers.forEach((m,idx)=>{
-        const list = workers.filter(s=>s.managerId===m.id);
-        const own = list.filter(s=>s.channelType==='own');
-        const partner = list.filter(s=>s.channelType==='partner');
-        mhtml += groupHtml(m.name, list, [
-          {key:'own', label:'①自社', list: own},
-          {key:'partner', label:'②パートナー', list: partner},
-        ], 'mg_'+idx+'_') + `<div style="height:4px;"></div>`;
+        const list = tabScoped.filter(s=>s.managerId===m.id);
+        const r = rateOf(list);
+        mhtml += `<div class="bar-row clickable" data-drill="mg_${idx}">
+          <span>${m.name}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${r||0}%;background:var(--amber);"></div></div>
+          <span>${r===null?'-':r+'%'}</span>
+        </div>
+        <div class="drill" id="drill-mg_${idx}">${drillListHtml(list)}</div>`;
       });
-      mgEl.innerHTML = mhtml + `<div class="hint">名前の下の①②をタップすると個人別に開きます。</div>`;
+      mgEl.innerHTML = mhtml + `<div class="hint">名前をタップすると個人別に開きます。</div>`;
       bindDrillClicks(mgEl);
     }
   }
@@ -1367,7 +1394,11 @@ function switchView(view){
 
 /* ============ init ============ */
 document.querySelectorAll('nav.side button').forEach(b=> b.addEventListener('click', ()=> switchView(b.dataset.view)));
-$('btnAddWorker').addEventListener('click', ()=> openWorkerModal(null));
+$('btnAddWorker').addEventListener('click', ()=>{
+  lastChannelType = workerScopeTab;
+  openWorkerModal(null);
+});
+document.querySelectorAll('.scope-tabs .scope-tab').forEach(b=> b.addEventListener('click', ()=> switchGlobalScope(b.dataset.scope)));
 $('w_btnCancel').addEventListener('click', closeWorkerModal);
 $('w_btnSave').addEventListener('click', saveWorker);
 $('w_btnDelete').addEventListener('click', deleteWorker);
@@ -1407,6 +1438,7 @@ $('btnAddPeriod').addEventListener('click', async ()=>{
 
 (async function init(){
   await loadLocal();
+  syncScopeTabsUI();
   // ファイルに埋め込まれたURLを常に優先して使う(設定画面は無いため)
   if(DEFAULT_GAS_URL){
     gasUrl = DEFAULT_GAS_URL;
