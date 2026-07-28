@@ -187,7 +187,7 @@
         <button class="btn" id="btnAddWorker">＋ 稼働者を追加</button>
       </div>
 
-      <div class="scope-tabs" id="workerScopeTabs">
+      <div class="scope-tabs global-scope-tabs" id="workerScopeTabs">
         <button data-scope="own" class="scope-tab active">①自社稼働者</button>
         <button data-scope="partner" class="scope-tab">②パートナー稼働者</button>
       </div>
@@ -231,7 +231,7 @@
         <div><h1>担当者別サマリー</h1><div class="meta">担当者ごとの受け持ち人数・入退職・継続率</div></div>
         <button class="btn" id="btnAddManager">＋ 担当者を追加</button>
       </div>
-      <div class="scope-tabs" id="managerScopeTabs">
+      <div class="scope-tabs global-scope-tabs" id="managerScopeTabs">
         <button data-scope="own" class="scope-tab active">①自社稼働者</button>
         <button data-scope="partner" class="scope-tab">②パートナー稼働者</button>
       </div>
@@ -254,13 +254,15 @@
       </div>
     </section>
 
+    <!-- ===== REVENUE VIEW ===== -->
+
     <!-- ===== ANALYTICS VIEW ===== -->
     <section id="view-analytics" style="display:none;">
       <div class="topbar">
         <div><h1>分析ダッシュボード</h1><div class="meta">継続率・入退職・離職理由・案件退場理由</div></div>
       </div>
 
-      <div class="scope-tabs" id="analyticsScopeTabs">
+      <div class="scope-tabs global-scope-tabs" id="analyticsScopeTabs">
         <button data-scope="own" class="scope-tab active">①自社稼働者</button>
         <button data-scope="partner" class="scope-tab">②パートナー稼働者</button>
       </div>
@@ -504,10 +506,27 @@ const $ = (id) => document.getElementById(id);
 function lsGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }
 function lsSet(key, val){ try{ localStorage.setItem(key, val); }catch(e){} }
 
+/* 単価履歴(priceHistory)はシート上ではJSON文字列で保持される。フル機能版で編集されたデータを
+   壊さず引き継ぐため、パースと旧データ(単価1個だけの形式)からの読み替えだけ行う。
+   制限版はこの値を画面には出さないが、既存レコード編集時に保持するために必要。 */
+function parsePriceHistory_(v){
+  if(Array.isArray(v)) return v.filter(h=>h && h.date).map(h=>({date:h.date, price:Number(h.price)||0}));
+  if(typeof v === 'string' && v.trim()){
+    try{ const parsed = JSON.parse(v); return Array.isArray(parsed) ? parsePriceHistory_(parsed) : []; }catch(e){ return []; }
+  }
+  return [];
+}
+function normalizeAssignment_(a){
+  let priceHistory = parsePriceHistory_(a.priceHistory);
+  if(!priceHistory.length && a.unitPrice){
+    priceHistory = [{date: a.startDate||'', price: Number(a.unitPrice)||0}];
+  }
+  return {...a, priceHistory};
+}
 async function loadLocal(){
   try{ const r = lsGet('crm-workers'); workers = r? JSON.parse(r):[]; }catch(e){ workers=[]; }
   try{ const r = lsGet('crm-managers'); managers = r? JSON.parse(r):[]; }catch(e){ managers=[]; }
-  try{ const r = lsGet('crm-assignments'); assignments = r? JSON.parse(r):[]; }catch(e){ assignments=[]; }
+  try{ const r = lsGet('crm-assignments'); assignments = (r? JSON.parse(r):[]).map(normalizeAssignment_); }catch(e){ assignments=[]; }
   try{ const u = lsGet('crm-gas-url'); gasUrl = u || ''; }catch(e){ gasUrl=''; }
   try{ const p = lsGet('crm-retention-periods'); if(p) retentionPeriods = JSON.parse(p); }catch(e){}
 }
@@ -543,7 +562,7 @@ async function pullFromSheet(silent){
     ]);
     if(Array.isArray(wr)) workers = wr;
     if(Array.isArray(mr)) managers = mr;
-    if(Array.isArray(ar)) assignments = ar;
+    if(Array.isArray(ar)) assignments = ar.map(normalizeAssignment_);
     await saveWorkersLocal(); await saveManagersLocal(); await saveAssignmentsLocal();
     renderAll();
     setDot(true);
@@ -719,7 +738,7 @@ function renderWorkers(){
   $('workerMeta').textContent = `${tabLabel} 全${scoped.length}件中 ${filtered.length}件を表示中(会社全体: ${workers.length}件)`;
 }
 function syncScopeTabsUI(){
-  document.querySelectorAll('.scope-tabs .scope-tab').forEach(b=> b.classList.toggle('active', b.dataset.scope===workerScopeTab));
+  document.querySelectorAll('.global-scope-tabs .scope-tab').forEach(b=> b.classList.toggle('active', b.dataset.scope===workerScopeTab));
 }
 function switchGlobalScope(scope){
   workerScopeTab = scope;
@@ -729,7 +748,6 @@ function switchGlobalScope(scope){
   $('filterChannel').value = 'all';
   renderAll();
 }
-
 /* ============ render: managers ============ */
 let managerSummaryFilter = [];
 let mgFilterPanelSignature = '';
@@ -808,7 +826,7 @@ function renderManagerTable(){
   tbody.querySelectorAll('[data-medit]').forEach(b=> b.addEventListener('click', ()=> openManagerModal(b.dataset.medit)));
 }
 
-/* ============ render: analytics ============ */
+
 let analyticsManagerFilter = 'all';
 
 function retentionDetail(months, list){
@@ -1157,12 +1175,17 @@ async function saveAssignment(){
   if(!editingWorkerId){ alert('先に稼働者を保存してください'); return; }
   const projectName = $('a_project').value.trim();
   if(!projectName){ alert('案件名を入力してください'); return; }
+  // 単価履歴(priceHistory)はこの制限版では入力欄が無いため、
+  // 既存レコード編集時は元の値をそのまま引き継ぎ、新規追加時は未設定のままにする
+  // (スプレッドシート側に保存されている単価データを消してしまわないため)
+  const existing = editingAssignmentId ? assignments.find(x=>x.id===editingAssignmentId) : null;
   const record = {
     id: editingAssignmentId || uid('a'),
     workerId: editingWorkerId,
     projectName,
     startDate: $('a_start').value,
     endDate: $('a_end').value,
+    priceHistory: existing ? existing.priceHistory : undefined,
     leaveReason: $('a_end').value ? $('a_reason').value : '',
     memo: $('a_memo').value.trim(),
     updatedAt: new Date().toISOString()
@@ -1174,7 +1197,10 @@ async function saveAssignment(){
   resetAssignmentForm();
   renderAssignmentList();
   renderAll();
-  syncRecord('assignment', record);
+  // スプレッドシートのセルには配列を直接書き込めないため、同期時のみJSON文字列化する
+  const syncPayload = {...record};
+  if(Array.isArray(syncPayload.priceHistory)) syncPayload.priceHistory = JSON.stringify(syncPayload.priceHistory);
+  syncRecord('assignment', syncPayload);
 }
 async function deleteAssignment(id){
   if(!confirm('この配属履歴を削除しますか?')) return;
@@ -1185,6 +1211,8 @@ async function deleteAssignment(id){
   renderAll();
   syncDeleteRecord('assignment', id);
 }
+
+/* ---- 単価は案件配属履歴(assignments)の unitPrice から取得する ---- */
 
 function openWorkerModal(id){
   populateManagerSelects();
@@ -1398,7 +1426,7 @@ $('btnAddWorker').addEventListener('click', ()=>{
   lastChannelType = workerScopeTab;
   openWorkerModal(null);
 });
-document.querySelectorAll('.scope-tabs .scope-tab').forEach(b=> b.addEventListener('click', ()=> switchGlobalScope(b.dataset.scope)));
+document.querySelectorAll('.global-scope-tabs .scope-tab').forEach(b=> b.addEventListener('click', ()=> switchGlobalScope(b.dataset.scope)));
 $('w_btnCancel').addEventListener('click', closeWorkerModal);
 $('w_btnSave').addEventListener('click', saveWorker);
 $('w_btnDelete').addEventListener('click', deleteWorker);
