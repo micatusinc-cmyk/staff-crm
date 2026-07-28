@@ -424,9 +424,18 @@
           <label><input type="radio" name="w_cdetail_own" value="jobB">NC</label>
           <label><input type="radio" name="w_cdetail_own" value="referral">リファラル</label>
         </div>
+        <label style="font-size:11px;color:var(--sub);font-weight:600;display:block;margin:10px 0 4px;">本人支給レート<span style="font-weight:400;"> ─ 売上管理側でこのレートをプルダウンから選べるようになります</span></label>
+        <div class="radio-row" id="w_payRateRow">
+          <label><input type="radio" name="w_payRatePlan" value="salary270" checked>月給27万円(¥1,534/時)</label>
+          <label><input type="radio" name="w_payRatePlan" value="salary250">月給25万円(¥1,420/時)</label>
+          <label><input type="radio" name="w_payRatePlan" value="custom">その他(手入力)</label>
+        </div>
+        <input type="number" min="0" id="w_payRateCustom" placeholder="時給(円) 例: 1500" style="display:none;margin-top:6px;">
       </div>
       <div class="subfield" id="w_partnerDetailWrap" style="display:none;">
         <input id="w_partnerName" placeholder="パートナー名">
+        <input type="number" min="0" id="w_partnerRate" placeholder="パートナー支払単価(円/時) 例: 1200" style="margin-top:8px;">
+        <p class="hint" style="margin-top:4px;">売上管理側でこのレートをプルダウンから選べるようになります</p>
       </div>
     </div>
 
@@ -562,9 +571,23 @@
       <button type="button" class="btn ghost small" id="mo_seg_addRow">+ 区分を追加</button>
     </div>
     <div class="field"><label>その他(円)<span style="font-weight:400;color:var(--sub);"> ─ 現場管理費など、売上から直接差し引く分</span></label><input type="number" min="0" id="mo_revenueDeduction" value="0"></div>
-    <div class="field" id="mo_workerPayField"><label>本人支給(円)</label><input type="number" min="0" id="mo_workerPay"></div>
+    <div class="field" id="mo_workerPayField">
+      <label>本人支給(円)</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="number" min="0" id="mo_workerPay" style="flex:1;">
+        <label style="font-size:11px;color:var(--sub);font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="mo_workerPay_auto" checked>自動計算</label>
+      </div>
+      <p class="hint" id="mo_workerPayHint" style="margin-top:4px;"></p>
+    </div>
     <div class="field"><label>インセンティブ(円)</label><input type="number" min="0" id="mo_incentive" value="0"></div>
-    <div class="field" id="mo_partnerFeeField" style="display:none;"><label>パートナー支払(円)</label><input type="number" min="0" id="mo_partnerFee" value="0"></div>
+    <div class="field" id="mo_partnerFeeField" style="display:none;">
+      <label>パートナー支払(円)</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="number" min="0" id="mo_partnerFee" value="0" style="flex:1;">
+        <label style="font-size:11px;color:var(--sub);font-weight:500;white-space:nowrap;display:flex;align-items:center;gap:4px;"><input type="checkbox" id="mo_partnerFee_auto" checked>自動計算</label>
+      </div>
+      <p class="hint" id="mo_partnerFeeHint" style="margin-top:4px;"></p>
+    </div>
     <div class="field"><label>メモ</label><textarea id="mo_memo" placeholder="任意"></textarea></div>
     <div class="card" style="background:#f7f9fc;padding:12px 14px;font-size:13px;">
       売上: <strong id="mo_revenueDisp">¥0</strong> ／ 粗利: <strong id="mo_profitDisp">¥0</strong>
@@ -584,7 +607,7 @@ let managers = [];
 let assignments = [];
 let monthlyRecords = [];
 /* 連携用のGAS URLをここに直接埋め込んでいるので、アプリを開けば自動的にスプレッドシートと同期されます。 */
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyJ2zDdy0La4FJ_GIrLhgVgsu8rxEmN7hUpE9aEdLTiVsBfpl6M_fFHiDoN38eYQSpn/exec';
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyZtxsQt805b4GoPMa1puLaKGVNLs1wV3U45CxyhB-gyyZ0f8x1EvAObJlXDMpYqH0U/exec';
 
 let gasUrl = '';
 let editingWorkerId = null;
@@ -950,15 +973,15 @@ function normalizeMonthlyRecord_(r){
   }
   return {...r, priceSegments};
 }
-/* 対象月に重なる案件配属の単価履歴から、その月に効いていた単価(複数あれば全部)を拾って
-   単価区分の初期値としてサジェストする。稼働時間はまだ分からないので空欄のまま。 */
-function suggestedSegmentsFor(workerId, yearMonth){
-  if(!workerId || !yearMonth) return null;
+/* 対象月に重なる案件配属の単価履歴から、その月に効いていた単価(重複除く)を一覧で返す。
+   売上管理の「単価区分」プルダウンの選択肢として使う。 */
+function availablePricesFor(workerId, yearMonth){
+  if(!workerId || !yearMonth) return [];
   const monthStart = yearMonth + '-01';
   const monthEnd = yearMonth + '-31';
   const list = assignments.filter(a=> a.workerId===workerId && Array.isArray(a.priceHistory) && a.priceHistory.length
     && (a.startDate||'') <= monthEnd && (!a.endDate || a.endDate >= monthStart));
-  if(!list.length) return null;
+  if(!list.length) return [];
   const prices = [];
   list.forEach(a=>{
     const hist = [...a.priceHistory].sort((x,y)=> x.date.localeCompare(y.date));
@@ -968,31 +991,110 @@ function suggestedSegmentsFor(workerId, yearMonth){
       if(segStart <= monthEnd && (!segEnd || segEnd > monthStart)) prices.push(Number(h.price)||0);
     });
   });
-  const uniquePrices = [...new Set(prices)].filter(p=>p>0);
-  return uniquePrices.length ? uniquePrices.map(p=>({unitPrice:p, workHours:''})) : null;
+  return [...new Set(prices)].filter(p=>p>0).sort((a,b)=>a-b);
+}
+/* 対象月に重なる案件配属の単価履歴から、その月に効いていた単価(複数あれば全部)を拾って
+   単価区分の初期値としてサジェストする。稼働時間はまだ分からないので空欄のまま。 */
+function suggestedSegmentsFor(workerId, yearMonth){
+  const prices = availablePricesFor(workerId, yearMonth);
+  return prices.length ? prices.map(p=>({unitPrice:p, workHours:''})) : null;
 }
 function renderSegmentEditor(){
-  $('mo_segList').innerHTML = editingSegments.map((seg,i)=>`
-    <div class="mo-seg-row">
-      <input type="number" min="0" class="mo-seg-price" data-segidx="${i}" value="${seg.unitPrice}" placeholder="単価(円) 例: 2000">
+  const workerId = $('mo_worker').value;
+  const yearMonth = $('mo_yearMonth').value;
+  const options = availablePricesFor(workerId, yearMonth);
+  $('mo_segList').innerHTML = editingSegments.map((seg,i)=>{
+    const priceNum = Number(seg.unitPrice);
+    const isKnown = seg.unitPrice!=='' && options.includes(priceNum);
+    const showCustom = seg.unitPrice!=='' && !isKnown;
+    const priceControl = options.length
+      ? `<select class="mo-seg-price-select" data-segidx="${i}">
+          <option value="" ${seg.unitPrice===''?'selected':''}>単価を選択</option>
+          ${options.map(p=>`<option value="${p}" ${isKnown && priceNum===p ? 'selected':''}>¥${p.toLocaleString()}</option>`).join('')}
+          <option value="__custom__" ${showCustom?'selected':''}>その他(手入力)</option>
+        </select>
+        <input type="number" min="0" class="mo-seg-price-custom" data-segidx="${i}" value="${seg.unitPrice}" placeholder="単価(円)" style="display:${showCustom?'block':'none'};">`
+      : `<input type="number" min="0" class="mo-seg-price-custom" data-segidx="${i}" value="${seg.unitPrice}" placeholder="単価(円) 例: 2000">`;
+    return `<div class="mo-seg-row">
+      ${priceControl}
       <input type="number" min="0" step="0.5" class="mo-seg-hours" data-segidx="${i}" value="${seg.workHours}" placeholder="稼働時間(h)">
       ${editingSegments.length>1 ? `<button type="button" class="mo-seg-del" data-segdel="${i}">削除</button>` : ''}
-    </div>`).join('');
-  $('mo_segList').querySelectorAll('.mo-seg-price').forEach(inp=> inp.addEventListener('input', ()=>{
-    editingSegments[Number(inp.dataset.segidx)].unitPrice = inp.value; updateMonthlyPreview();
+    </div>`;
+  }).join('');
+  $('mo_segList').querySelectorAll('.mo-seg-price-select').forEach(sel=> sel.addEventListener('change', ()=>{
+    const idx = Number(sel.dataset.segidx);
+    if(sel.value==='__custom__'){
+      editingSegments[idx].unitPrice = '';
+      renderSegmentEditor();
+      const customInput = $('mo_segList').querySelector(`.mo-seg-price-custom[data-segidx="${idx}"]`);
+      if(customInput) customInput.focus();
+    }else{
+      editingSegments[idx].unitPrice = sel.value;
+      recalcAutoPay();
+    }
+  }));
+  $('mo_segList').querySelectorAll('.mo-seg-price-custom').forEach(inp=> inp.addEventListener('input', ()=>{
+    editingSegments[Number(inp.dataset.segidx)].unitPrice = inp.value; recalcAutoPay();
   }));
   $('mo_segList').querySelectorAll('.mo-seg-hours').forEach(inp=> inp.addEventListener('input', ()=>{
-    editingSegments[Number(inp.dataset.segidx)].workHours = inp.value; updateMonthlyPreview();
+    editingSegments[Number(inp.dataset.segidx)].workHours = inp.value; recalcAutoPay();
   }));
   $('mo_segList').querySelectorAll('[data-segdel]').forEach(b=> b.addEventListener('click', ()=>{
     editingSegments.splice(Number(b.dataset.segdel), 1);
     renderSegmentEditor();
-    updateMonthlyPreview();
+    recalcAutoPay();
   }));
 }
 function addSegmentRow(){
   editingSegments.push({unitPrice:'', workHours:''});
   renderSegmentEditor();
+  recalcAutoPay();
+}
+/* 本人支給(自社)・パートナー支払は、稼働者マスタに設定された時給プラン(workerHourlyRate)を
+   使って「時給×稼働区分の合計時間」で自動計算する。「自動計算」チェックが外れている場合や
+   稼働者マスタに時給が未設定の場合は、手入力してもらう。 */
+function recalcAutoPay(){
+  const w = workers.find(x=>x.id===$('mo_worker').value);
+  const totalHours = editingSegments.reduce((s,seg)=> s + (Number(seg.workHours)||0), 0);
+  if(w && w.channelType==='own'){
+    const rate = workerHourlyRate(w);
+    if($('mo_workerPay_auto').checked && rate!==null){
+      $('mo_workerPay').value = Math.round(rate*totalHours);
+      $('mo_workerPay').disabled = true;
+      $('mo_workerPayHint').textContent = `時給¥${rate.toLocaleString()} × ${totalHours}h で自動計算`;
+    }else{
+      $('mo_workerPay').disabled = false;
+      if($('mo_workerPay_auto').checked && rate===null){
+        $('mo_workerPay_auto').checked = false;
+        $('mo_workerPayHint').textContent = '稼働者マスタに時給設定がありません。手動で入力してください。';
+      }else{
+        $('mo_workerPayHint').textContent = '';
+      }
+    }
+  }else{
+    $('mo_workerPay').disabled = false;
+    $('mo_workerPayHint').textContent = '';
+  }
+  if(w && w.channelType==='partner'){
+    const rate = workerHourlyRate(w);
+    if($('mo_partnerFee_auto').checked && rate!==null){
+      $('mo_partnerFee').value = Math.round(rate*totalHours);
+      $('mo_partnerFee').disabled = true;
+      $('mo_partnerFeeHint').textContent = `パートナー単価¥${rate.toLocaleString()} × ${totalHours}h で自動計算`;
+    }else{
+      $('mo_partnerFee').disabled = false;
+      if($('mo_partnerFee_auto').checked && rate===null){
+        $('mo_partnerFee_auto').checked = false;
+        $('mo_partnerFeeHint').textContent = 'パートナー支払単価が稼働者マスタに未設定です。手動で入力してください。';
+      }else{
+        $('mo_partnerFeeHint').textContent = '';
+      }
+    }
+  }else{
+    $('mo_partnerFee').disabled = false;
+    $('mo_partnerFeeHint').textContent = '';
+  }
+  updateMonthlyPreview();
 }
 function computeRevenueForRecord(rec){
   const segs = monthlySegmentsOf(rec);
@@ -1054,6 +1156,9 @@ function openMonthlyModal(id){
     $('mo_partnerFee').value = r.partnerFee||0;
     $('mo_memo').value = r.memo||'';
     $('mo_btnDelete').style.display='inline-block';
+    // 編集時は保存済みの値を尊重し、自動計算チェックは外しておく(勝手に再計算して上書きしないため)
+    $('mo_workerPay_auto').checked = false;
+    $('mo_partnerFee_auto').checked = false;
   }else{
     editingMonthlyId = null;
     $('monthlyModalTitle').textContent = '実績を追加';
@@ -1061,10 +1166,12 @@ function openMonthlyModal(id){
       const suggested = suggestedSegmentsFor($('mo_worker').value, $('mo_yearMonth').value);
       if(suggested && suggested.length) editingSegments = suggested;
     }
+    $('mo_workerPay_auto').checked = true;
+    $('mo_partnerFee_auto').checked = true;
   }
   renderSegmentEditor();
   toggleMonthlyPartnerField();
-  updateMonthlyPreview();
+  recalcAutoPay();
   $('monthlyOverlay').classList.add('open');
 }
 function closeMonthlyModal(){ $('monthlyOverlay').classList.remove('open'); }
@@ -1542,9 +1649,12 @@ function resetWorkerForm(){
   $('w_id').value=''; $('w_name').value=''; $('w_hire').value=''; $('w_resign').value='';
   $('w_memo').value=''; $('w_reasonNote').value='';
   $('w_partnerName').value = lastChannelType==='partner' ? lastPartnerName : '';
+  $('w_partnerRate').value = '';
   document.querySelector('input[name=w_status][value=active]').checked=true;
   document.querySelector(`input[name=w_ctype][value=${lastChannelType}]`).checked=true;
   document.querySelector(`input[name=w_cdetail_own][value=${lastChannelType==='own'? lastChannelDetail : 'jobA'}]`).checked=true;
+  document.querySelector('input[name=w_payRatePlan][value=salary270]').checked=true;
+  $('w_payRateCustom').value=''; $('w_payRateCustom').style.display='none';
   $('w_reason').value='給与';
   $('w_btnDelete').style.display='none';
   toggleWorkerStatusFields(); toggleWorkerChannelFields();
@@ -1560,6 +1670,23 @@ function toggleWorkerChannelFields(){
   const isOwn = document.querySelector('input[name=w_ctype]:checked').value==='own';
   $('w_ownDetailWrap').style.display = isOwn? 'block':'none';
   $('w_partnerDetailWrap').style.display = isOwn? 'none':'block';
+}
+function toggleWorkerPayRateField(){
+  const plan = document.querySelector('input[name=w_payRatePlan]:checked').value;
+  $('w_payRateCustom').style.display = plan==='custom' ? 'block' : 'none';
+}
+/* 自社人員: プランに応じた時給を返す(customの場合は手入力値) */
+function workerHourlyRate(w){
+  if(!w) return null;
+  if(w.channelType==='own'){
+    if(w.payRatePlan==='salary250') return 1420;
+    if(w.payRatePlan==='custom') return Number(w.payRateCustomHourly)||null;
+    return 1534; // 既定: 月給27万円プラン
+  }
+  if(w.channelType==='partner'){
+    return Number(w.partnerRateCustomHourly)||null;
+  }
+  return null;
 }
 
 /* ---- assignment sub-CRUD within worker modal ---- */
@@ -1704,9 +1831,13 @@ function openWorkerModal(id){
     document.querySelector(`input[name=w_ctype][value=${s.channelType||'own'}]`).checked=true;
     if(s.channelType==='own'){
       document.querySelector(`input[name=w_cdetail_own][value=${s.channelDetail||'jobA'}]`).checked=true;
+      document.querySelector(`input[name=w_payRatePlan][value=${s.payRatePlan||'salary270'}]`).checked=true;
+      $('w_payRateCustom').value = s.payRateCustomHourly||'';
     }else{
       $('w_partnerName').value=s.channelDetail||'';
+      $('w_partnerRate').value = s.partnerRateCustomHourly||'';
     }
+    toggleWorkerPayRateField();
     $('w_reason').value = s.resignReason||'給与';
     $('w_reasonNote').value = s.resignReasonNote||'';
     $('w_btnDelete').style.display='inline-block';
@@ -1799,6 +1930,9 @@ async function saveWorker(){
     resignDate: status!=='active' ? $('w_resign').value : '',
     channelType: ctype,
     channelDetail: ctype==='own' ? document.querySelector('input[name=w_cdetail_own]:checked').value : $('w_partnerName').value.trim(),
+    payRatePlan: ctype==='own' ? document.querySelector('input[name=w_payRatePlan]:checked').value : '',
+    payRateCustomHourly: ctype==='own' ? (Number($('w_payRateCustom').value)||0) : 0,
+    partnerRateCustomHourly: ctype==='partner' ? (Number($('w_partnerRate').value)||0) : 0,
     resignReason: status!=='active' ? $('w_reason').value : '',
     resignReasonNote: status!=='active' ? $('w_reasonNote').value.trim() : '',
     memo: $('w_memo').value.trim(),
@@ -1912,6 +2046,7 @@ $('w_btnDelete').addEventListener('click', deleteWorker);
 $('workerOverlay').addEventListener('click', (e)=>{ if(e.target.id==='workerOverlay') closeWorkerModal(); });
 document.querySelectorAll('input[name=w_status]').forEach(r=> r.addEventListener('change', toggleWorkerStatusFields));
 document.querySelectorAll('input[name=w_ctype]').forEach(r=> r.addEventListener('change', toggleWorkerChannelFields));
+document.querySelectorAll('input[name=w_payRatePlan]').forEach(r=> r.addEventListener('change', toggleWorkerPayRateField));
 $('a_btnSave').addEventListener('click', saveAssignment);
 $('a_btnCancel').addEventListener('click', resetAssignmentForm);
 $('a_ph_add').addEventListener('click', addPriceHistoryEntry);
@@ -1935,18 +2070,22 @@ $('mo_worker').addEventListener('change', ()=>{
   toggleMonthlyPartnerField();
   if(!editingMonthlyId){
     const suggested = suggestedSegmentsFor($('mo_worker').value, $('mo_yearMonth').value);
-    if(suggested && suggested.length){ editingSegments = suggested; renderSegmentEditor(); }
+    if(suggested && suggested.length) editingSegments = suggested;
   }
-  updateMonthlyPreview();
+  renderSegmentEditor();
+  recalcAutoPay();
 });
 $('mo_yearMonth').addEventListener('change', ()=>{
   if(!editingMonthlyId && $('mo_worker').value){
     const suggested = suggestedSegmentsFor($('mo_worker').value, $('mo_yearMonth').value);
-    if(suggested && suggested.length){ editingSegments = suggested; renderSegmentEditor(); }
+    if(suggested && suggested.length) editingSegments = suggested;
   }
-  updateMonthlyPreview();
+  renderSegmentEditor();
+  recalcAutoPay();
 });
 $('mo_seg_addRow').addEventListener('click', addSegmentRow);
+$('mo_workerPay_auto').addEventListener('change', recalcAutoPay);
+$('mo_partnerFee_auto').addEventListener('change', recalcAutoPay);
 ['mo_revenueDeduction','mo_workerPay','mo_incentive','mo_partnerFee'].forEach(id=> $(id).addEventListener('input', updateMonthlyPreview));
 $('revMonthFilter').addEventListener('change', renderRevenue);
 $('revManagerFilter').addEventListener('change', renderRevenue);
