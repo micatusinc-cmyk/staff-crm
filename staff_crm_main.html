@@ -434,8 +434,7 @@
       </div>
       <div class="subfield" id="w_partnerDetailWrap" style="display:none;">
         <input id="w_partnerName" placeholder="パートナー名">
-        <input type="number" min="0" id="w_partnerRate" placeholder="パートナー支払単価(円/時) 例: 1200" style="margin-top:8px;">
-        <p class="hint" style="margin-top:4px;">売上管理側でこのレートをプルダウンから選べるようになります</p>
+        <p class="hint" style="margin-top:4px;">卸単価(パートナー会社への支払単価)は案件ごとに変わるため、下の「案件配属履歴」で入力してください。</p>
       </div>
     </div>
 
@@ -470,6 +469,15 @@
             <input type="date" id="a_ph_date">
             <input type="number" min="0" id="a_ph_price" placeholder="単価(円) 例: 250000">
             <button type="button" class="btn ghost small" id="a_ph_add">+ 履歴に追加</button>
+          </div>
+        </div>
+        <div class="full" id="a_partnerFeeSection" style="display:none;">
+          <label>卸単価履歴<span style="font-weight:400;color:var(--sub);"> ─ この案件でパートナー会社に支払う単価。案件ごとに変わるため、ここに履歴として入力してください</span></label>
+          <div class="ph-list" id="a_partnerFeeHistoryList"></div>
+          <div class="ph-add-row">
+            <input type="date" id="a_pf_date">
+            <input type="number" min="0" id="a_pf_price" placeholder="卸単価(円) 例: 1200">
+            <button type="button" class="btn ghost small" id="a_pf_add">+ 履歴に追加</button>
           </div>
         </div>
         <div class="full"><label>退場理由</label>
@@ -607,13 +615,14 @@ let managers = [];
 let assignments = [];
 let monthlyRecords = [];
 /* 連携用のGAS URLをここに直接埋め込んでいるので、アプリを開けば自動的にスプレッドシートと同期されます。 */
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyZtxsQt805b4GoPMa1puLaKGVNLs1wV3U45CxyhB-gyyZ0f8x1EvAObJlXDMpYqH0U/exec';
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbws8EgjYf9CQKyPaXPiVxaLL1rJR4HMICRd6Lk8eIeEgt_W4ruLJ_EiaRNp1Sx-kMDi/exec';
 
 let gasUrl = '';
 let editingWorkerId = null;
 let editingManagerId = null;
 let editingAssignmentId = null;
 let editingPriceHistory = [];
+let editingPartnerFeeHistory = [];
 let retentionPeriods = [3,6,12];
 let lastManagerId = lsGet('crm-last-manager') || '';
 let lastChannelType = lsGet('crm-last-ctype') || 'own';
@@ -1076,16 +1085,16 @@ function recalcAutoPay(){
     $('mo_workerPayHint').textContent = '';
   }
   if(w && w.channelType==='partner'){
-    const rate = workerHourlyRate(w);
+    const rate = partnerFeeAsOf(w.id, $('mo_yearMonth').value);
     if($('mo_partnerFee_auto').checked && rate!==null){
       $('mo_partnerFee').value = Math.round(rate*totalHours);
       $('mo_partnerFee').disabled = true;
-      $('mo_partnerFeeHint').textContent = `パートナー単価¥${rate.toLocaleString()} × ${totalHours}h で自動計算`;
+      $('mo_partnerFeeHint').textContent = `卸単価¥${rate.toLocaleString()} × ${totalHours}h で自動計算`;
     }else{
       $('mo_partnerFee').disabled = false;
       if($('mo_partnerFee_auto').checked && rate===null){
         $('mo_partnerFee_auto').checked = false;
-        $('mo_partnerFeeHint').textContent = 'パートナー支払単価が稼働者マスタに未設定です。手動で入力してください。';
+        $('mo_partnerFeeHint').textContent = 'この案件の卸単価が稼働管理側にまだ登録されていません。手動で入力してください。';
       }else{
         $('mo_partnerFeeHint').textContent = '';
       }
@@ -1649,7 +1658,6 @@ function resetWorkerForm(){
   $('w_id').value=''; $('w_name').value=''; $('w_hire').value=''; $('w_resign').value='';
   $('w_memo').value=''; $('w_reasonNote').value='';
   $('w_partnerName').value = lastChannelType==='partner' ? lastPartnerName : '';
-  $('w_partnerRate').value = '';
   document.querySelector('input[name=w_status][value=active]').checked=true;
   document.querySelector(`input[name=w_ctype][value=${lastChannelType}]`).checked=true;
   document.querySelector(`input[name=w_cdetail_own][value=${lastChannelType==='own'? lastChannelDetail : 'jobA'}]`).checked=true;
@@ -1677,15 +1685,34 @@ function toggleWorkerPayRateField(){
 }
 /* 自社人員: プランに応じた時給を返す(customの場合は手入力値) */
 function workerHourlyRate(w){
-  if(!w) return null;
-  if(w.channelType==='own'){
-    if(w.payRatePlan==='salary250') return 1420;
-    if(w.payRatePlan==='custom') return Number(w.payRateCustomHourly)||null;
-    return 1534; // 既定: 月給27万円プラン
+  if(!w || w.channelType!=='own') return null;
+  if(w.payRatePlan==='salary250') return 1420;
+  if(w.payRatePlan==='custom') return Number(w.payRateCustomHourly)||null;
+  return 1534; // 既定: 月給27万円プラン
+}
+/* パートナー人員: 卸単価は案件(配属履歴)ごとに変わるため、稼働者マスタではなく
+   案件配属履歴の「卸単価履歴」から、対象月に有効な値を探す。
+   案件側にまだ履歴が無い場合のみ、稼働者マスタの旧・単一レート設定(移行前のデータ)にフォールバックする。 */
+function partnerFeeAsOf(workerId, yearMonth){
+  const list = assignments.filter(a=> a.workerId===workerId && Array.isArray(a.partnerFeeHistory) && a.partnerFeeHistory.length);
+  if(list.length){
+    if(yearMonth){
+      const monthStart = yearMonth + '-01';
+      const monthEnd = yearMonth + '-31';
+      const overlapping = list.filter(a=> (a.startDate||'') <= monthEnd && (!a.endDate || a.endDate >= monthStart));
+      if(overlapping.length){
+        const latestAssign = [...overlapping].sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''))[0];
+        const p = historyValueAsOf(latestAssign.partnerFeeHistory, monthEnd);
+        if(p!==null) return p;
+      }
+    }
+    const latestAssign = [...list].sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''))[0];
+    const p = historyValueAsOf(latestAssign.partnerFeeHistory, null);
+    if(p!==null) return p;
   }
-  if(w.channelType==='partner'){
-    return Number(w.partnerRateCustomHourly)||null;
-  }
+  // レガシー: 案件側に卸単価履歴がまだ登録されていない場合、旧・稼働者マスタの単一レートにフォールバック
+  const w = workers.find(x=>x.id===workerId);
+  if(w && w.partnerRateCustomHourly) return Number(w.partnerRateCustomHourly)||null;
   return null;
 }
 
@@ -1703,16 +1730,20 @@ function normalizeAssignment_(a){
   if(!priceHistory.length && a.unitPrice){
     priceHistory = [{date: a.startDate||'', price: Number(a.unitPrice)||0}];
   }
-  return {...a, priceHistory};
+  const partnerFeeHistory = parsePriceHistory_(a.partnerFeeHistory);
+  return {...a, priceHistory, partnerFeeHistory};
 }
-function priceAsOf(assignment, asOfDate){
-  const hist = Array.isArray(assignment.priceHistory) ? assignment.priceHistory : [];
+/* 汎用: 履歴リスト(date+priceの配列)から、指定日時点で有効な値を返す。
+   単価履歴(priceHistory)にも卸単価履歴(partnerFeeHistory)にも使う。 */
+function historyValueAsOf(history, asOfDate){
+  const hist = Array.isArray(history) ? history : [];
   if(!hist.length) return null;
   const sorted = [...hist].sort((a,b)=> a.date.localeCompare(b.date));
   if(!asOfDate) return sorted[sorted.length-1].price;
   const applicable = sorted.filter(h=> h.date <= asOfDate);
   return applicable.length ? applicable[applicable.length-1].price : null;
 }
+function priceAsOf(assignment, asOfDate){ return historyValueAsOf(assignment.priceHistory, asOfDate); }
 function latestPriceOf(assignment){ return priceAsOf(assignment, null); }
 function renderPriceHistoryEditor(){
   const sorted = [...editingPriceHistory].sort((a,b)=> a.date.localeCompare(b.date));
@@ -1735,11 +1766,42 @@ function addPriceHistoryEntry(){
   $('a_ph_date').value=''; $('a_ph_price').value='';
   renderPriceHistoryEditor();
 }
+/* ---- 卸単価履歴(パートナー人員に対して支払う単価。案件ごとに変わるため単価履歴と同じ形式で持つ) ---- */
+function renderPartnerFeeHistoryEditor(){
+  const sorted = [...editingPartnerFeeHistory].sort((a,b)=> a.date.localeCompare(b.date));
+  $('a_partnerFeeHistoryList').innerHTML = sorted.length ? sorted.map(h=>{
+    const realIdx = editingPartnerFeeHistory.indexOf(h);
+    return `<div class="ph-row"><span>${formatDateJP(h.date)} 〜 <strong>¥${Number(h.price).toLocaleString()}</strong></span><button type="button" class="ph-del" data-pfdel="${realIdx}">削除</button></div>`;
+  }).join('') : '<div class="drill-empty" style="font-size:11px;">卸単価履歴はまだありません</div>';
+  $('a_partnerFeeHistoryList').querySelectorAll('[data-pfdel]').forEach(b=> b.addEventListener('click', ()=>{
+    editingPartnerFeeHistory.splice(Number(b.dataset.pfdel), 1);
+    renderPartnerFeeHistoryEditor();
+  }));
+}
+function addPartnerFeeHistoryEntry(){
+  const date = $('a_pf_date').value;
+  const price = Number($('a_pf_price').value);
+  if(!date){ alert('適用開始日を入力してください'); return; }
+  if(!price || price<=0){ alert('卸単価を入力してください'); return; }
+  const idx = editingPartnerFeeHistory.findIndex(h=>h.date===date);
+  if(idx>=0) editingPartnerFeeHistory[idx] = {date, price}; else editingPartnerFeeHistory.push({date, price});
+  $('a_pf_date').value=''; $('a_pf_price').value='';
+  renderPartnerFeeHistoryEditor();
+}
+/* 現在編集中の稼働者がパートナー人員かどうかで、卸単価履歴セクションの表示を切り替える */
+function toggleAssignPartnerFeeSection(){
+  const isPartner = document.querySelector('input[name=w_ctype]:checked').value==='partner';
+  $('a_partnerFeeSection').style.display = isPartner ? 'block' : 'none';
+}
 function resetAssignmentForm(){
   $('a_id').value=''; $('a_project').value=lastProjectName; $('a_start').value=''; $('a_end').value=''; $('a_reason').value=''; $('a_memo').value='';
   $('a_ph_date').value=''; $('a_ph_price').value='';
+  $('a_pf_date').value=''; $('a_pf_price').value='';
   editingPriceHistory = [];
+  editingPartnerFeeHistory = [];
   renderPriceHistoryEditor();
+  renderPartnerFeeHistoryEditor();
+  toggleAssignPartnerFeeSection();
   $('a_btnCancel').style.display='none';
   $('a_btnSave').textContent='追加';
   editingAssignmentId = null;
@@ -1747,13 +1809,17 @@ function resetAssignmentForm(){
 function renderAssignmentList(){
   const list = assignments.filter(a=>a.workerId===editingWorkerId);
   const sorted = [...list].sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''));
+  const w = workers.find(x=>x.id===editingWorkerId);
+  const isPartner = !!(w && w.channelType==='partner');
   $('assignList').innerHTML = sorted.length ? sorted.map(a=>{
     const ongoing = !a.endDate;
     const latestPrice = latestPriceOf(a);
     const histCount = Array.isArray(a.priceHistory) ? a.priceHistory.length : 0;
+    const latestPartnerFee = isPartner ? historyValueAsOf(a.partnerFeeHistory, null) : null;
+    const pfHistCount = Array.isArray(a.partnerFeeHistory) ? a.partnerFeeHistory.length : 0;
     return `<div class="assign-row">
       <div>
-        <div class="a-main">${a.projectName||'(案件名未入力)'} ${ongoing?'<span class="badge active">稼働中</span>':'<span class="badge resigned">退場済</span>'}${latestPrice? ` <span class="chip">¥${Number(latestPrice).toLocaleString()}</span>` : ''}${histCount>1? ` <span class="chip faint">単価変更${histCount-1}回</span>` : ''}</div>
+        <div class="a-main">${a.projectName||'(案件名未入力)'} ${ongoing?'<span class="badge active">稼働中</span>':'<span class="badge resigned">退場済</span>'}${latestPrice? ` <span class="chip">¥${Number(latestPrice).toLocaleString()}</span>` : ''}${histCount>1? ` <span class="chip faint">単価変更${histCount-1}回</span>` : ''}${latestPartnerFee? ` <span class="chip faint">卸¥${Number(latestPartnerFee).toLocaleString()}</span>` : ''}${pfHistCount>1? ` <span class="chip faint">卸変更${pfHistCount-1}回</span>` : ''}</div>
         <div class="a-sub">${formatDateJP(a.startDate)} 〜 ${a.endDate? formatDateJP(a.endDate) : '(継続中)'}${a.leaveReason? ' / 退場理由: '+a.leaveReason : ''}</div>
       </div>
       <div class="a-actions">
@@ -1773,8 +1839,12 @@ function loadAssignmentToForm(id){
   $('a_id').value=a.id; $('a_project').value=a.projectName||''; $('a_start').value=a.startDate||'';
   $('a_end').value=a.endDate||''; $('a_reason').value=a.leaveReason||''; $('a_memo').value=a.memo||'';
   editingPriceHistory = (Array.isArray(a.priceHistory) ? a.priceHistory : []).map(h=>({date:h.date, price:Number(h.price)||0}));
+  editingPartnerFeeHistory = (Array.isArray(a.partnerFeeHistory) ? a.partnerFeeHistory : []).map(h=>({date:h.date, price:Number(h.price)||0}));
   $('a_ph_date').value=''; $('a_ph_price').value='';
+  $('a_pf_date').value=''; $('a_pf_price').value='';
   renderPriceHistoryEditor();
+  renderPartnerFeeHistoryEditor();
+  toggleAssignPartnerFeeSection();
   $('a_btnCancel').style.display='inline-block';
   $('a_btnSave').textContent='更新';
 }
@@ -1783,6 +1853,7 @@ async function saveAssignment(){
   const projectName = $('a_project').value.trim();
   if(!projectName){ alert('案件名を入力してください'); return; }
   const priceHistory = [...editingPriceHistory].sort((a,b)=> a.date.localeCompare(b.date));
+  const partnerFeeHistory = [...editingPartnerFeeHistory].sort((a,b)=> a.date.localeCompare(b.date));
   const record = {
     id: editingAssignmentId || uid('a'),
     workerId: editingWorkerId,
@@ -1790,6 +1861,7 @@ async function saveAssignment(){
     startDate: $('a_start').value,
     endDate: $('a_end').value,
     priceHistory,
+    partnerFeeHistory,
     leaveReason: $('a_end').value ? $('a_reason').value : '',
     memo: $('a_memo').value.trim(),
     updatedAt: new Date().toISOString()
@@ -1802,7 +1874,7 @@ async function saveAssignment(){
   renderAssignmentList();
   renderAll();
   // スプレッドシートのセルには配列を直接書き込めないため、同期時のみJSON文字列化する
-  syncRecord('assignment', {...record, priceHistory: JSON.stringify(priceHistory)});
+  syncRecord('assignment', {...record, priceHistory: JSON.stringify(priceHistory), partnerFeeHistory: JSON.stringify(partnerFeeHistory)});
 }
 async function deleteAssignment(id){
   if(!confirm('この配属履歴を削除しますか?')) return;
@@ -1835,13 +1907,12 @@ function openWorkerModal(id){
       $('w_payRateCustom').value = s.payRateCustomHourly||'';
     }else{
       $('w_partnerName').value=s.channelDetail||'';
-      $('w_partnerRate').value = s.partnerRateCustomHourly||'';
     }
     toggleWorkerPayRateField();
     $('w_reason').value = s.resignReason||'給与';
     $('w_reasonNote').value = s.resignReasonNote||'';
     $('w_btnDelete').style.display='inline-block';
-    toggleWorkerStatusFields(); toggleWorkerChannelFields();
+    toggleWorkerStatusFields(); toggleWorkerChannelFields(); toggleAssignPartnerFeeSection();
     $('assignSection').style.display='block';
     $('assignHint').style.display='none';
     renderAssignmentList();
@@ -1921,6 +1992,7 @@ async function saveWorker(){
   if(!$('w_hire').value){ alert('入職日を入力してください'); return; }
 
   const isNew = !editingWorkerId;
+  const existingWorker = editingWorkerId ? workers.find(x=>x.id===editingWorkerId) : null;
   const record = {
     id: editingWorkerId || uid('w'),
     name,
@@ -1932,7 +2004,9 @@ async function saveWorker(){
     channelDetail: ctype==='own' ? document.querySelector('input[name=w_cdetail_own]:checked').value : $('w_partnerName').value.trim(),
     payRatePlan: ctype==='own' ? document.querySelector('input[name=w_payRatePlan]:checked').value : '',
     payRateCustomHourly: ctype==='own' ? (Number($('w_payRateCustom').value)||0) : 0,
-    partnerRateCustomHourly: ctype==='partner' ? (Number($('w_partnerRate').value)||0) : 0,
+    // 卸単価(パートナー支払単価)は案件配属履歴側の「卸単価履歴」に移管したため、稼働者フォームからは書き込まない。
+    // 移行前の旧データが残っている場合は、消してしまわないようそのまま引き継ぐ。
+    partnerRateCustomHourly: existingWorker ? existingWorker.partnerRateCustomHourly : undefined,
     resignReason: status!=='active' ? $('w_reason').value : '',
     resignReasonNote: status!=='active' ? $('w_reasonNote').value.trim() : '',
     memo: $('w_memo').value.trim(),
@@ -2045,11 +2119,12 @@ $('w_btnSave').addEventListener('click', saveWorker);
 $('w_btnDelete').addEventListener('click', deleteWorker);
 $('workerOverlay').addEventListener('click', (e)=>{ if(e.target.id==='workerOverlay') closeWorkerModal(); });
 document.querySelectorAll('input[name=w_status]').forEach(r=> r.addEventListener('change', toggleWorkerStatusFields));
-document.querySelectorAll('input[name=w_ctype]').forEach(r=> r.addEventListener('change', toggleWorkerChannelFields));
+document.querySelectorAll('input[name=w_ctype]').forEach(r=> r.addEventListener('change', ()=>{ toggleWorkerChannelFields(); toggleAssignPartnerFeeSection(); }));
 document.querySelectorAll('input[name=w_payRatePlan]').forEach(r=> r.addEventListener('change', toggleWorkerPayRateField));
 $('a_btnSave').addEventListener('click', saveAssignment);
 $('a_btnCancel').addEventListener('click', resetAssignmentForm);
 $('a_ph_add').addEventListener('click', addPriceHistoryEntry);
+$('a_pf_add').addEventListener('click', addPartnerFeeHistoryEntry);
 
 $('btnAddManager').addEventListener('click', ()=> openManagerModal(null));
 $('m_btnCancel').addEventListener('click', closeManagerModal);
