@@ -654,7 +654,7 @@
       <div class="mo-seg-list" id="mo_segList"></div>
       <button type="button" class="btn ghost small" id="mo_seg_addRow">+ 区分を追加</button>
     </div>
-    <div class="field"><label>その他(円)<span style="font-weight:400;color:var(--sub);"> ─ 現場管理費など、売上から直接差し引く分</span></label><input type="number" min="0" id="mo_revenueDeduction" value="0"></div>
+    <div class="field"><label>その他(円)<span style="font-weight:400;color:var(--sub);"> ─ 現場管理費など、粗利から直接差し引く分(売上の金額自体には影響しません)</span></label><input type="number" min="0" id="mo_revenueDeduction" value="0"></div>
     <div class="field" id="mo_workerPayField">
       <label>本人支給(円)</label>
       <div style="display:flex;gap:8px;align-items:center;">
@@ -1297,8 +1297,12 @@ function segmentRevenue(s){
 function computeRevenueForRecord(rec){
   const segs = monthlySegmentsOf(rec);
   const grossRevenue = segs.reduce((sum,s)=> sum + segmentRevenue(s), 0);
-  const revenue = grossRevenue - (Number(rec.revenueDeduction)||0);
-  const profit = revenue - (Number(rec.workerPay)||0) - (Number(rec.incentive)||0) - (Number(rec.partnerFee)||0);
+  // 売上 = 単価×稼働時間 + インセンティブ(その他はここでは引かない)
+  // 粗利 = 売上 − 本人支給 − インセンティブ − パートナー支払 − その他
+  //   (自社: partnerFeeは常に0 / パートナー: workerPayは常に0 になる作りなので、
+  //    この1本の式で両パターンとも正しく計算される)
+  const revenue = grossRevenue + (Number(rec.incentive)||0);
+  const profit = revenue - (Number(rec.workerPay)||0) - (Number(rec.incentive)||0) - (Number(rec.partnerFee)||0) - (Number(rec.revenueDeduction)||0);
   return {revenue, profit};
 }
 function populateRevFilters(){
@@ -1344,8 +1348,8 @@ function populateMonthlyWorkerSelect(){
 }
 function updateMonthlyPreview(){
   const grossRevenue = editingSegments.reduce((sum,s)=> sum + segmentRevenue(s), 0);
-  const revenue = grossRevenue - (Number($('mo_revenueDeduction').value)||0);
-  const profit = revenue - (Number($('mo_workerPay').value)||0) - (Number($('mo_incentive').value)||0) - (Number($('mo_partnerFee').value)||0);
+  const revenue = grossRevenue + (Number($('mo_incentive').value)||0);
+  const profit = revenue - (Number($('mo_workerPay').value)||0) - (Number($('mo_incentive').value)||0) - (Number($('mo_partnerFee').value)||0) - (Number($('mo_revenueDeduction').value)||0);
   $('mo_revenueDisp').textContent = '¥' + Math.round(revenue).toLocaleString();
   $('mo_profitDisp').textContent = '¥' + Math.round(profit).toLocaleString();
 }
