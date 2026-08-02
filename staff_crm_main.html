@@ -157,6 +157,7 @@
   .mo-seg-row .mo-seg-del{background:none;border:none;color:var(--sub);cursor:pointer;font-size:11px;white-space:nowrap;font-weight:600;}
   .mo-seg-row .mo-seg-del:hover{color:var(--coral);}
   .mo-seg-ot{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--sub);font-weight:600;white-space:nowrap;flex:none;}
+  .mo-seg-total{font-size:12px;font-weight:700;color:var(--brand-2);white-space:nowrap;flex:none;}
   .mo-seg-ot input{flex:none;width:auto;padding:0;}
 
   .an-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:22px;}
@@ -646,10 +647,10 @@
   <div class="modal">
     <h2 id="monthlyModalTitle">実績を追加</h2>
     <input type="hidden" id="mo_id">
-    <div class="field"><label>稼働者</label><select id="mo_worker"></select></div>
     <div class="field"><label>対象月</label><input type="month" id="mo_yearMonth"></div>
+    <div class="field"><label>稼働者</label><select id="mo_worker"></select></div>
     <div class="field full">
-      <label>単価区分<span style="font-weight:400;color:var(--sub);"> ─ 月の途中で単価が変わる場合は行を追加してください(例: 1〜15日は¥2,000、16〜31日は¥3,100)。売上 = Σ(単価×稼働時間)</span></label>
+      <label>単価区分<span style="font-weight:400;color:var(--sub);"> ─ 月の途中で単価が変わる場合は行を追加してください(例: 1〜15日は¥2,000、16〜31日は¥3,100)。稼働時間 = 日数×8h + 増減算時間。売上 = Σ(単価×稼働時間)</span></label>
       <div class="mo-seg-list" id="mo_segList"></div>
       <button type="button" class="btn ghost small" id="mo_seg_addRow">+ 区分を追加</button>
     </div>
@@ -1106,20 +1107,34 @@ function renderManagerTable(){
 
 /* ============ render: revenue (売上管理) ============ */
 let editingMonthlyId = null;
-let editingSegments = [{unitPrice:'', workHours:'', overtime:false}];
+let editingSegments = [{unitPrice:'', workHours:'', days:'', adjustHours:'', overtime:false}];
 let revFilterSignature = '';
 let revMonthFilterInitialized = false;
 
 /* 月次実績は「単価×稼働時間」の組を複数(単価区分)持てる。
    月の途中で単価が変わった場合は区分を分けて入力してもらう(例: 1〜15日¥2,000 / 16〜31日¥3,100)。
    旧データ(単価1個・稼働時間1個だけの形式)は自動的に単価区分1件として読み替える。 */
+/* 単価区分の稼働時間は「日数×8時間 + 増減算時間」で組み立てる。
+   旧データ(daysフィールドが無く workHours だけの形式)は、8時間換算で日数/端数に分解して復元する。 */
+function segDaysAndAdjust(s){
+  if(s.days!==undefined || s.adjustHours!==undefined){
+    return {days: s.days!==undefined && s.days!=='' ? Number(s.days) : '', adjustHours: s.adjustHours!==undefined && s.adjustHours!=='' ? Number(s.adjustHours) : ''};
+  }
+  const wh = Number(s.workHours)||0;
+  const days = Math.floor(wh/8);
+  const adjustHours = Math.round((wh - days*8)*10)/10;
+  return {days: wh? days : '', adjustHours: wh? adjustHours : ''};
+}
+function segTotalHours(days, adjustHours){
+  return (Number(days)||0)*8 + (Number(adjustHours)||0);
+}
 function monthlySegmentsOf(r){
   return (Array.isArray(r.priceSegments) && r.priceSegments.length)
     ? r.priceSegments
     : [{unitPrice: Number(r.unitPrice)||0, workHours: Number(r.workHours)||0, overtime:false}];
 }
 function parsePriceSegments_(v){
-  if(Array.isArray(v)) return v.map(s=>({unitPrice:Number(s.unitPrice)||0, workHours:Number(s.workHours)||0, overtime:!!s.overtime}));
+  if(Array.isArray(v)) return v.map(s=>({unitPrice:Number(s.unitPrice)||0, workHours:Number(s.workHours)||0, days:s.days, adjustHours:s.adjustHours, overtime:!!s.overtime}));
   if(typeof v === 'string' && v.trim()){
     try{ const parsed = JSON.parse(v); return Array.isArray(parsed) ? parsePriceSegments_(parsed) : []; }catch(e){ return []; }
   }
@@ -1156,7 +1171,7 @@ function availablePricesFor(workerId, yearMonth){
    単価区分の初期値としてサジェストする。稼働時間はまだ分からないので空欄のまま。 */
 function suggestedSegmentsFor(workerId, yearMonth){
   const prices = availablePricesFor(workerId, yearMonth);
-  return prices.length ? prices.map(p=>({unitPrice:p, workHours:'', overtime:false})) : null;
+  return prices.length ? prices.map(p=>({unitPrice:p, workHours:'', days:'', adjustHours:'', overtime:false})) : null;
 }
 function renderSegmentEditor(){
   const workerId = $('mo_worker').value;
@@ -1174,9 +1189,13 @@ function renderSegmentEditor(){
         </select>
         <input type="number" min="0" class="mo-seg-price-custom" data-segidx="${i}" value="${seg.unitPrice}" placeholder="単価(円)" style="display:${showCustom?'block':'none'};">`
       : `<input type="number" min="0" class="mo-seg-price-custom" data-segidx="${i}" value="${seg.unitPrice}" placeholder="単価(円) 例: 2000">`;
+    const {days, adjustHours} = segDaysAndAdjust(seg);
+    const total = segTotalHours(days, adjustHours);
     return `<div class="mo-seg-row">
       ${priceControl}
-      <input type="number" min="0" step="0.5" class="mo-seg-hours" data-segidx="${i}" value="${seg.workHours}" placeholder="稼働時間(h)">
+      <input type="number" min="0" step="0.5" class="mo-seg-days" data-segidx="${i}" value="${days}" placeholder="日数(日)">
+      <input type="number" step="0.5" class="mo-seg-adjust" data-segidx="${i}" value="${adjustHours}" placeholder="増減算時間(h)">
+      <span class="mo-seg-total" data-segidx="${i}">= ${total}h</span>
       <label class="mo-seg-ot"><input type="checkbox" class="mo-seg-overtime" data-segidx="${i}" ${seg.overtime?'checked':''}>時間外(×1.25)</label>
       ${editingSegments.length>1 ? `<button type="button" class="mo-seg-del" data-segdel="${i}">削除</button>` : ''}
     </div>`;
@@ -1196,9 +1215,19 @@ function renderSegmentEditor(){
   $('mo_segList').querySelectorAll('.mo-seg-price-custom').forEach(inp=> inp.addEventListener('input', ()=>{
     editingSegments[Number(inp.dataset.segidx)].unitPrice = inp.value; recalcAutoPay();
   }));
-  $('mo_segList').querySelectorAll('.mo-seg-hours').forEach(inp=> inp.addEventListener('input', ()=>{
-    editingSegments[Number(inp.dataset.segidx)].workHours = inp.value; recalcAutoPay();
-  }));
+  function bindHoursInput(cls, field){
+    $('mo_segList').querySelectorAll(cls).forEach(inp=> inp.addEventListener('input', ()=>{
+      const idx = Number(inp.dataset.segidx);
+      editingSegments[idx][field] = inp.value;
+      const {days, adjustHours} = segDaysAndAdjust(editingSegments[idx]);
+      editingSegments[idx].workHours = segTotalHours(days, adjustHours);
+      const totalEl = $('mo_segList').querySelector(`.mo-seg-total[data-segidx="${idx}"]`);
+      if(totalEl) totalEl.textContent = `= ${editingSegments[idx].workHours}h`;
+      recalcAutoPay();
+    }));
+  }
+  bindHoursInput('.mo-seg-days', 'days');
+  bindHoursInput('.mo-seg-adjust', 'adjustHours');
   $('mo_segList').querySelectorAll('.mo-seg-overtime').forEach(cb=> cb.addEventListener('change', ()=>{
     editingSegments[Number(cb.dataset.segidx)].overtime = cb.checked; recalcAutoPay();
   }));
@@ -1209,7 +1238,7 @@ function renderSegmentEditor(){
   }));
 }
 function addSegmentRow(){
-  editingSegments.push({unitPrice:'', workHours:'', overtime:false});
+  editingSegments.push({unitPrice:'', workHours:'', days:'', adjustHours:'', overtime:false});
   renderSegmentEditor();
   recalcAutoPay();
 }
@@ -1285,11 +1314,33 @@ function populateRevFilters(){
     $('revMonthFilter').value = localMonthStr();
   }
 }
+/* 対象月に在籍していた稼働者だけを選択肢に出す(入職がその月以前、かつ退職がその月より後 or 未退職)。
+   自社/パートナー/全体それぞれ、入職が新しい順に並べる(全体の場合は自社→パートナーの optgroup に分ける)。 */
 function populateMonthlyWorkerSelect(){
-  const scoped = revenueScopedWorkers();
-  $('mo_worker').innerHTML = scoped.length
-    ? scoped.map(w=>`<option value="${w.id}">${w.name}${w.status==='resigned'?'(退職済み)':''}${w.channelType==='partner'?' ・パートナー':''}</option>`).join('')
-    : '<option value="">(該当する稼働者がいません)</option>';
+  const yearMonth = $('mo_yearMonth').value;
+  const monthStart = yearMonth ? yearMonth+'-01' : null;
+  const monthEnd = yearMonth ? yearMonth+'-31' : null;
+  const scoped = revenueScopedWorkers().filter(w=>{
+    if(!yearMonth) return true;
+    if(w.hireDate && w.hireDate > monthEnd) return false;
+    if(w.resignDate && w.resignDate < monthStart) return false;
+    return true;
+  });
+  const byHireDesc = (a,b)=> (b.hireDate||'').localeCompare(a.hireDate||'');
+  const optionHtml = w=> `<option value="${w.id}">${w.name}${w.status==='resigned'?'(退職済み)':''}${w.channelType==='partner'?' ・パートナー':''}</option>`;
+  if(!scoped.length){
+    $('mo_worker').innerHTML = '<option value="">(該当する稼働者がいません)</option>';
+    return;
+  }
+  if(revenueScopeTab==='all'){
+    const own = scoped.filter(w=>w.channelType==='own').sort(byHireDesc);
+    const partner = scoped.filter(w=>w.channelType==='partner').sort(byHireDesc);
+    $('mo_worker').innerHTML =
+      (own.length? `<optgroup label="自社">${own.map(optionHtml).join('')}</optgroup>` : '') +
+      (partner.length? `<optgroup label="パートナー">${partner.map(optionHtml).join('')}</optgroup>` : '');
+  }else{
+    $('mo_worker').innerHTML = [...scoped].sort(byHireDesc).map(optionHtml).join('');
+  }
 }
 function updateMonthlyPreview(){
   const grossRevenue = editingSegments.reduce((sum,s)=> sum + segmentRevenue(s), 0);
@@ -1306,9 +1357,9 @@ function toggleMonthlyPartnerField(){
 }
 function openMonthlyModal(id){
   $('mo_btnSave').disabled = false;
-  populateMonthlyWorkerSelect();
   $('mo_id').value=''; $('mo_yearMonth').value = $('revMonthFilter').value || localMonthStr();
-  editingSegments = [{unitPrice:'', workHours:'', overtime:false}];
+  populateMonthlyWorkerSelect();
+  editingSegments = [{unitPrice:'', workHours:'', days:'', adjustHours:'', overtime:false}];
   $('mo_revenueDeduction').value=0; $('mo_workerPay').value=''; $('mo_incentive').value=0; $('mo_partnerFee').value=0; $('mo_memo').value='';
   $('mo_btnDelete').style.display='none';
   if(id){
@@ -1317,9 +1368,13 @@ function openMonthlyModal(id){
     editingMonthlyId = id;
     $('monthlyModalTitle').textContent = '実績を編集';
     $('mo_id').value=r.id;
-    $('mo_worker').value = r.workerId;
     $('mo_yearMonth').value = r.yearMonth||'';
-    editingSegments = monthlySegmentsOf(r).map(s=>({unitPrice:s.unitPrice||'', workHours:s.workHours||'', overtime:!!s.overtime}));
+    populateMonthlyWorkerSelect(); // 対象月が変わった可能性があるので選択肢を作り直す
+    $('mo_worker').value = r.workerId;
+    editingSegments = monthlySegmentsOf(r).map(s=>{
+      const {days, adjustHours} = segDaysAndAdjust(s);
+      return {unitPrice:s.unitPrice||'', workHours:s.workHours||0, days, adjustHours, overtime:!!s.overtime};
+    });
     $('mo_revenueDeduction').value = r.revenueDeduction||0;
     $('mo_workerPay').value = r.workerPay||'';
     $('mo_incentive').value = r.incentive||0;
@@ -1352,7 +1407,7 @@ async function saveMonthlyRecord(){
   const yearMonth = $('mo_yearMonth').value;
   if(!yearMonth){ alert('対象月を入力してください'); return; }
   const priceSegments = editingSegments
-    .map(s=>({unitPrice:Number(s.unitPrice)||0, workHours:Number(s.workHours)||0, overtime:!!s.overtime}))
+    .map(s=>({unitPrice:Number(s.unitPrice)||0, workHours:Number(s.workHours)||0, days:s.days===''?undefined:Number(s.days), adjustHours:s.adjustHours===''?undefined:Number(s.adjustHours), overtime:!!s.overtime}))
     .filter(s=> s.unitPrice>0 && s.workHours>0);
   if(!priceSegments.length){ alert('単価と稼働時間を入力してください'); return; }
   $('mo_btnSave').disabled = true;
@@ -2348,6 +2403,12 @@ $('mo_worker').addEventListener('change', ()=>{
   recalcAutoPay();
 });
 $('mo_yearMonth').addEventListener('change', ()=>{
+  const prevWorker = $('mo_worker').value;
+  populateMonthlyWorkerSelect();
+  if(prevWorker && [...$('mo_worker').options].some(o=>o.value===prevWorker)){
+    $('mo_worker').value = prevWorker;
+  }
+  toggleMonthlyPartnerField();
   if(!editingMonthlyId && $('mo_worker').value){
     const suggested = suggestedSegmentsFor($('mo_worker').value, $('mo_yearMonth').value);
     if(suggested && suggested.length) editingSegments = suggested;
