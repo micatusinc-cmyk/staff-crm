@@ -1413,7 +1413,15 @@ async function saveMonthlyRecord(){
   const priceSegments = editingSegments
     .map(s=>({unitPrice:Number(s.unitPrice)||0, workHours:Number(s.workHours)||0, days:s.days===''?undefined:Number(s.days), adjustHours:s.adjustHours===''?undefined:Number(s.adjustHours), overtime:!!s.overtime}))
     .filter(s=> s.unitPrice>0 && s.workHours>0);
-  if(!priceSegments.length){ alert('単価と稼働時間を入力してください'); return; }
+  const incentiveVal = Number($('mo_incentive').value)||0;
+  const revenueDeductionVal = Number($('mo_revenueDeduction').value)||0;
+  const workerPayVal = Number($('mo_workerPay').value)||0;
+  const partnerFeeVal = Number($('mo_partnerFee').value)||0;
+  // 稼働時間(単価区分)が無くても、インセンティブなど他の項目に値があれば保存できるようにする
+  if(!priceSegments.length && !incentiveVal && !revenueDeductionVal && !workerPayVal && !partnerFeeVal){
+    alert('単価・稼働時間・インセンティブなど、何か入力してください');
+    return;
+  }
   $('mo_btnSave').disabled = true;
   const w = workers.find(x=>x.id===workerId);
   const isPartner = !!(w && w.channelType==='partner');
@@ -1482,13 +1490,18 @@ function renderRevenue(){
   for(const r of list){
     const w = workers.find(x=>x.id===r.workerId);
     const segs = monthlySegmentsOf(r);
+    const hasRealSegs = segs.some(s=> (Number(s.unitPrice)||0)>0 || (Number(s.workHours)||0)>0);
     const fmtSegPrice = s => '¥'+Number(s.unitPrice||0).toLocaleString() + (s.overtime? '<span class="chip faint" style="margin-left:2px;">×1.25</span>' : '');
-    const priceCell = segs.length>1
-      ? segs.map(fmtSegPrice).join(' / ')
-      : fmtSegPrice(segs[0]||{unitPrice:0});
-    const hoursCell = segs.length>1
-      ? `${r.workHours||0}h <span class="chip faint">${segs.length}区分</span>`
-      : `${r.workHours||0}h`;
+    const priceCell = !hasRealSegs
+      ? '<span class="chip faint">インセンティブのみ</span>'
+      : segs.length>1
+        ? segs.map(fmtSegPrice).join(' / ')
+        : fmtSegPrice(segs[0]||{unitPrice:0});
+    const hoursCell = !hasRealSegs
+      ? '-'
+      : segs.length>1
+        ? `${r.workHours||0}h <span class="chip faint">${segs.length}区分</span>`
+        : `${r.workHours||0}h`;
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${w? w.name : '(削除済み)'}</td>
