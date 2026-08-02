@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ReLGroup稼働者管理(メイン)</title>
+<title>ReLGroup稼働者管理</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -256,7 +256,7 @@
   <button class="nav-toggle" id="navToggle" aria-label="メニューを開く"><span></span></button>
   <div class="nav-backdrop" id="navBackdrop"></div>
   <nav class="side" id="navSide">
-    <div class="brand">ReLGroup<span>稼働者管理(メイン)</span></div>
+    <div class="brand">ReLGroup<span>稼働者管理</span></div>
     <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:5px;">
       <span class="status-dot" id="syncDot"></span>
     </div>
@@ -304,7 +304,7 @@
         <div class="table-scroll">
         <table>
           <thead>
-            <tr><th>氏名</th><th>担当者</th><th>状態</th><th>入職日</th><th>退職(予定)日</th><th>経路</th><th>案件履歴(単価)</th><th>在籍期間</th><th></th></tr>
+            <tr><th>氏名</th><th>担当者</th><th>状態</th><th>入職日</th><th>退職(予定)日</th><th>経路</th><th>単価</th><th>案件履歴(単価)</th><th>在籍期間</th><th></th></tr>
           </thead>
           <tbody id="workerTbody"></tbody>
         </table>
@@ -848,6 +848,21 @@ function currentAssignment(workerId){
   if(!list.length) return null;
   return [...list].sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''))[0];
 }
+/* 稼働者一覧の「単価」列: 自社人員は本人支給の時給、パートナー人員は
+   直近の案件の卸単価(最新)を表示する。 */
+function workerRateCell(s){
+  if(s.channelType==='own'){
+    const rate = workerHourlyRate(s);
+    if(rate===null) return '<span class="chip faint">未設定</span>';
+    const planLabel = s.payRatePlan==='salary250' ? '25万/月' : s.payRatePlan==='custom' ? '手入力' : '27万/月';
+    return `<span class="chip">本人支給¥${Number(rate).toLocaleString()}(${planLabel})</span>`;
+  }
+  if(s.channelType==='partner'){
+    const rate = partnerFeeAsOf(s.id, null);
+    return rate!==null ? `<span class="chip">卸¥${Number(rate).toLocaleString()}/h</span>` : '<span class="chip faint">未設定</span>';
+  }
+  return '-';
+}
 /* 稼働者一覧の「案件履歴(単価)」列: 現在の案件だけでなく、これまでの全案件をチップで表示する。
    同じ案件内で単価が変わっている場合は「¥2,000→¥2,500」のように変化を全部表示する。 */
 function projectHistoryChips(workerId){
@@ -961,6 +976,7 @@ function renderWorkers(){
       <td>${formatDateJP(s.hireDate)}</td>
       <td>${formatDateJP(s.resignDate)}</td>
       <td><span class="chip">${channelLabel(s)}</span></td>
+      <td>${workerRateCell(s)}</td>
       <td style="max-width:320px;">${projectHistoryChips(s.id)}</td>
       <td>${fmtTenure(s)}</td>
       <td class="row-actions">
