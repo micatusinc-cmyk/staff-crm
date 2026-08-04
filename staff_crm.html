@@ -21,6 +21,9 @@
     --brand:#3852d6;
     --brand-2:#2c40ab;
     --brand-soft:rgba(56,82,214,.10);
+    --gold:#e3a73e;
+    --gold-2:#c4881f;
+    --gold-soft:rgba(227,167,62,.16);
     --accent:#0f9e8f;
     --amber:#d98e3f;
     --amber-soft:#fbf2e3;
@@ -44,10 +47,10 @@
     margin:0;font-family:'Noto Sans JP','Inter',sans-serif;color:var(--text);-webkit-font-smoothing:antialiased;
     background-color:var(--bg);
     background-image:
-      radial-gradient(circle at 8% 8%, rgba(56,82,214,.20), transparent 45%),
-      radial-gradient(circle at 92% 18%, rgba(15,158,143,.18), transparent 42%),
-      radial-gradient(circle at 25% 92%, rgba(217,142,63,.16), transparent 40%),
-      radial-gradient(circle at 88% 88%, rgba(56,82,214,.13), transparent 42%);
+      radial-gradient(circle at 8% 8%, rgba(56,82,214,.18), transparent 45%),
+      radial-gradient(circle at 92% 18%, rgba(15,158,143,.15), transparent 42%),
+      radial-gradient(circle at 25% 92%, rgba(227,167,62,.20), transparent 40%),
+      radial-gradient(circle at 88% 88%, rgba(56,82,214,.12), transparent 42%);
     background-attachment:fixed;
     background-repeat:no-repeat;
   }
@@ -58,35 +61,40 @@
   button{transition:background .15s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease,transform .1s ease;}
 
   .shell{display:flex;min-height:100vh;}
-  nav.side{width:212px;flex:0 0 212px;background:linear-gradient(175deg,#3852d6,#2536a0);color:rgba(255,255,255,.72);padding:22px 0;position:sticky;top:0;height:100vh;box-shadow:var(--shadow-lg);}
-  nav.side .brand{font-family:'Zen Kaku Gothic New';font-weight:900;font-size:17px;padding:0 22px 20px;letter-spacing:.03em;margin-bottom:10px;color:#fff;display:flex;align-items:center;gap:9px;border-bottom:1px solid rgba(255,255,255,.14);}
-  nav.side .brand::before{content:'';width:9px;height:9px;border-radius:3px;background:#fff;flex:0 0 auto;box-shadow:0 0 0 4px rgba(255,255,255,.18);}
-  nav.side .brand span{display:block;font-size:10.5px;font-weight:600;color:rgba(255,255,255,.6);margin-top:4px;letter-spacing:.08em;font-family:'Noto Sans JP';}
-  nav.side button{display:block;width:calc(100% - 24px);margin:2px 12px;text-align:left;background:none;border:none;color:rgba(255,255,255,.75);padding:10px 13px;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:600;border-radius:10px;}
-  nav.side button:hover{background:#fff;color:var(--brand-2);}
-  nav.side button.active{color:var(--brand-2);background:#fff;box-shadow:var(--shadow-md);}
-  nav.side button.active:hover{background:var(--brand-2);color:#fff;}
+  nav.side{width:212px;flex:0 0 212px;background:linear-gradient(175deg,#1b2032,#0e1119);color:rgba(255,255,255,.68);padding:22px 0;position:sticky;top:0;height:100vh;box-shadow:var(--shadow-lg);}
+  nav.side .brand{font-family:'Zen Kaku Gothic New';font-weight:900;font-size:17px;padding:0 22px 20px;letter-spacing:.03em;margin-bottom:10px;color:#fff;display:flex;align-items:center;gap:9px;border-bottom:1px solid rgba(255,255,255,.1);}
+  nav.side .brand::before{content:'';width:9px;height:9px;border-radius:3px;background:var(--gold);flex:0 0 auto;box-shadow:0 0 0 4px rgba(227,167,62,.22);}
+  nav.side .brand span{display:block;font-size:10.5px;font-weight:600;color:rgba(255,255,255,.5);margin-top:4px;letter-spacing:.08em;font-family:'Noto Sans JP';}
+  nav.side button{display:block;width:calc(100% - 24px);margin:2px 12px;text-align:left;background:none;border:none;color:rgba(255,255,255,.7);padding:10px 13px;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:600;border-radius:10px;}
+  nav.side button:hover{background:rgba(255,255,255,.08);color:#fff;}
+  nav.side button.active{color:#20232e;background:var(--gold);box-shadow:var(--shadow-md);}
+  nav.side button.active:hover{background:var(--gold-2);color:#20232e;}
 
   main{flex:1;padding:30px 34px 64px;max-width:1180px;}
   .topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:22px;gap:12px;flex-wrap:wrap;}
   .topbar h1{font-size:21px;margin:0;font-weight:700;letter-spacing:.01em;}
   .topbar .meta{font-size:12px;color:var(--sub);}
 
-  .btn{background:var(--brand);color:#fff;border:none;padding:10px 19px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:600;font-family:inherit;box-shadow:var(--shadow-sm);}
-  .btn:hover{background:var(--brand-2);box-shadow:var(--shadow-md);transform:translateY(-1px);}
+  .btn{background:var(--gold);color:#20232e;border:none;padding:10px 19px;border-radius:10px;font-size:13px;cursor:pointer;font-weight:700;font-family:inherit;box-shadow:var(--shadow-sm);}
+  .btn:hover{background:var(--gold-2);box-shadow:var(--shadow-md);transform:translateY(-1px);}
   .btn:active{transform:translateY(0);}
   .btn.ghost{background:var(--card-solid);color:var(--ink);border:1px solid var(--line);box-shadow:none;}
   .btn.ghost:hover{background:var(--surface-2);border-color:#d7dae5;transform:none;}
-  .btn.danger{background:var(--coral);}
+  .btn.danger{background:var(--coral);color:#fff;}
   .btn.danger:hover{background:#c94549;}
   .btn.small{padding:6px 13px;font-size:12px;border-radius:8px;}
 
   .grid-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:13px;margin-bottom:24px;}
   .kpi{background:var(--card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);border:1px solid var(--line);border-radius:var(--radius);padding:17px 19px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden;}
-  .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--brand),var(--accent));opacity:.7;}
+  .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--brand));opacity:.85;}
   .kpi .num{font-family:'Inter','Zen Kaku Gothic New';font-weight:800;font-size:25px;color:var(--ink);line-height:1.1;letter-spacing:-.01em;}
   .kpi .lbl{font-size:12px;color:var(--sub);margin-top:7px;font-weight:500;}
   .kpi .sub{font-size:11px;margin-top:4px;color:var(--accent);font-weight:700;}
+  .kpi-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:10px;}
+  .trend-badge{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle;}
+  .trend-badge.trend-up{background:var(--success-soft);color:var(--success);}
+  .trend-badge.trend-down{background:var(--coral-soft);color:var(--coral);}
+  .trend-badge.trend-flat{background:var(--surface-2);color:var(--sub);}
 
   .card{background:var(--card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px;margin-bottom:22px;box-shadow:var(--shadow-sm);}
   .card h2{font-size:15px;margin:0 0 15px;font-weight:700;color:var(--ink);}
@@ -260,14 +268,39 @@
     <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:5px;">
       <span class="status-dot" id="syncDot"></span>
     </div>
-    <button class="active" data-view="workers">稼働者一覧</button>
+    <button class="active" data-view="home">ホーム</button>
+    <button data-view="workers">稼働者一覧</button>
     <button data-view="managers">担当者別サマリー</button>
     <button data-view="analytics">分析ダッシュボード</button>
   </nav>
 
   <main>
+    <!-- ===== HOME VIEW ===== -->
+    <section id="view-home">
+      <div class="topbar">
+        <div><h1 id="homeTitle">ホーム</h1><div class="meta" id="homeMeta">-</div></div>
+      </div>
+
+      <div class="grid-kpi" id="homeKpiRow"></div>
+
+      <div class="an-grid">
+        <div class="card">
+          <h2>経路別 内訳(稼働中)</h2>
+          <div class="bars" id="homeChannelBars"></div>
+        </div>
+        <div class="card">
+          <h2>クイック操作</h2>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <button class="btn" id="homeBtnAddWorker">＋ 稼働者を追加</button>
+          </div>
+          <h3 style="margin-top:18px;">今月 退職予定の稼働者</h3>
+          <div id="homeRetiringList" class="bars"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ===== WORKERS VIEW ===== -->
-    <section id="view-workers">
+    <section id="view-workers" style="display:none;">
       <div class="topbar">
         <div><h1>稼働者一覧</h1><div class="meta" id="workerMeta">-</div></div>
         <button class="btn" id="btnAddWorker">＋ 稼働者を追加</button>
@@ -394,6 +427,10 @@
         </div>
         <div>
           <div class="card">
+            <h2>経路別 構成比<span style="font-weight:400;color:var(--sub);">(稼働中)</span></h2>
+            <div id="compositionDonut"></div>
+          </div>
+          <div class="card">
             <h2>入職経路別 継続率</h2>
             <div class="bars" id="channelBars"></div>
           </div>
@@ -452,7 +489,8 @@
         </div>
       </div>
       <div class="subfield" id="w_partnerDetailWrap" style="display:none;">
-        <input id="w_partnerName" placeholder="パートナー名">
+        <input id="w_partnerName" list="partnerNameList" placeholder="パートナー名" autocomplete="off">
+        <datalist id="partnerNameList"></datalist>
       </div>
     </div>
 
@@ -477,7 +515,8 @@
       <div class="assign-list" id="assignList"></div>
       <div class="assign-form">
         <input type="hidden" id="a_id">
-        <div class="full"><label>案件名</label><input id="a_project" placeholder="〇〇コールセンター案件"></div>
+        <div class="full"><label>案件名</label><input id="a_project" list="projectNameList" placeholder="〇〇コールセンター案件" autocomplete="off"></div>
+        <datalist id="projectNameList"></datalist>
         <div><label>配属開始日</label><input type="date" id="a_start"></div>
         <div><label>退場日(在籍中は空欄)</label><input type="date" id="a_end"></div>
         <div class="full"><label>退場理由</label>
@@ -500,7 +539,7 @@
           <button class="btn small" id="a_btnSave">追加</button>
         </div>
       </div>
-      <p class="hint" id="assignHint" style="display:none;">先に稼働者を保存すると、案件配属履歴を追加できるようになります。</p>
+      <p class="hint" id="assignHint" style="display:none;">↑ここに案件名・配属開始日を入力しておくと、下の「稼働者を保存」を押したときに案件情報も一緒に登録されます。</p>
     </div>
 
     <div class="modal-actions">
@@ -1083,6 +1122,87 @@ function renderTenureDistribution(scopedWorkers){
     }));
   });
 }
+/* 複数系列(売上・粗利、入職・退職数など)を折れ線グラフのSVGとして描画する軽量ヘルパー。
+   外部ライブラリなしで、ぱっと見の推移が分かりやすいようにグリッド線・数値・点を出す。
+   opts.fmt: 目盛りや点のツールチップに使う数値フォーマッタ(省略時は円表示)。 */
+function buildTrendLineChart(months, series, opts){
+  opts = opts || {};
+  const fmt = opts.fmt || (v => '¥'+Math.round(v).toLocaleString());
+  const fmtShort = opts.fmtShort || (v => '¥'+Math.round(v/1000)+'k');
+  const W = 640, H = 230, padL = 58, padR = 14, padT = 16, padB = 26;
+  const innerW = W - padL - padR, innerH = H - padT - padB;
+  const allVals = series.flatMap(s=>s.data);
+  let maxV = Math.max(0, ...allVals);
+  let minV = Math.min(0, ...allVals);
+  if(maxV===minV){ maxV += 1; }
+  const range = maxV - minV;
+  const n = months.length;
+  const xStep = n>1 ? innerW/(n-1) : 0;
+  const xOf = i => padL + i*xStep;
+  const yOf = v => padT + innerH - ((v-minV)/range)*innerH;
+
+  const gridSteps = 4;
+  let gridHtml = '';
+  for(let g=0; g<=gridSteps; g++){
+    const v = minV + range*(g/gridSteps);
+    const y = yOf(v);
+    gridHtml += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="var(--line)" stroke-width="1"/>
+      <text x="${padL-8}" y="${y+3}" font-size="9.5" fill="var(--sub)" text-anchor="end">${fmtShort(v)}</text>`;
+  }
+  if(minV<0 && maxV>0){
+    const y0 = yOf(0);
+    gridHtml += `<line x1="${padL}" y1="${y0}" x2="${W-padR}" y2="${y0}" stroke="var(--sub-2)" stroke-width="1.2"/>`;
+  }
+
+  const xLabelsHtml = months.map((m,i)=>{
+    if(n>8 && i%2!==0 && i!==n-1) return ''; // 混みすぎないよう間引く
+    return `<text x="${xOf(i)}" y="${H-7}" font-size="9.5" fill="var(--sub)" text-anchor="middle">${m.slice(2).replace('-','/')}</text>`;
+  }).join('');
+
+  const seriesHtml = series.map(s=>{
+    const pts = s.data.map((v,i)=>`${xOf(i)},${yOf(v)}`).join(' ');
+    const dots = s.data.map((v,i)=>`<circle cx="${xOf(i)}" cy="${yOf(v)}" r="3.2" fill="${s.color}" stroke="#fff" stroke-width="1"><title>${months[i]} ${s.label}: ${fmt(v)}</title></circle>`).join('');
+    return `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>${dots}`;
+  }).join('');
+
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block;font-family:'Inter','Noto Sans JP';">${gridHtml}${xLabelsHtml}${seriesHtml}</svg>`;
+}
+/* 構成比を「パッと見て分かる」ようにするドーナツ(円)チャート。
+   items: [{label, value, color}]。中央に合計件数を表示する。 */
+function buildDonutChart(items, centerLabel){
+  const total = items.reduce((s,it)=> s+(Number(it.value)||0), 0);
+  const size = 168, cx = size/2, cy = size/2, r = 62, sw = 26;
+  const circumference = 2*Math.PI*r;
+  let offset = 0;
+  const segsHtml = total<=0 ? '' : items.filter(it=>it.value>0).map(it=>{
+    const frac = it.value/total;
+    const dash = frac*circumference;
+    const gap = circumference - dash;
+    const html = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${it.color}" stroke-width="${sw}"
+      stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${cx} ${cy})">
+      <title>${it.label}: ${it.value}件 (${Math.round(frac*100)}%)</title></circle>`;
+    offset += dash;
+    return html;
+  }).join('');
+  const legendHtml = items.map(it=>{
+    const pct = total>0 ? Math.round(it.value/total*100) : 0;
+    return `<div class="stack-legend-row"><span class="sw" style="background:${it.color};"></span><span class="lbl-txt">${it.label}</span><strong>${it.value}件</strong><span style="color:var(--sub);margin-left:4px;">(${pct}%)</span></div>`;
+  }).join('');
+  return `<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+    <div style="position:relative;width:${size}px;height:${size}px;flex:0 0 auto;">
+      <svg viewBox="0 0 ${size} ${size}" style="width:100%;height:100%;">
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="${sw}"/>
+        ${segsHtml}
+      </svg>
+      <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;">
+        <div style="font-size:22px;font-weight:800;font-family:'Inter';color:var(--ink);">${total}</div>
+        <div style="font-size:10px;color:var(--sub);">${centerLabel||'合計'}</div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:140px;">${legendHtml}</div>
+  </div>`;
+}
+
 function renderAnalytics(){
   syncScopeTabsUI();
   populateAnalyticsManagerFilter();
@@ -1118,17 +1238,11 @@ function renderAnalytics(){
   for(let i=11;i>=0;i--){ const dt = new Date(d.getFullYear(), d.getMonth()-i, 1); months.push(localMonthStr(dt)); }
   const hireCounts = months.map(m=> scopedWorkers.filter(s=> s.hireDate && s.hireDate.slice(0,7)===m).length);
   const resignCounts = months.map(m=> scopedWorkers.filter(s=> s.resignDate && s.resignDate.slice(0,7)===m).length);
-  const maxV = Math.max(1, ...hireCounts, ...resignCounts);
-  $('trendBars').innerHTML = months.map((m,i)=>`
-    <div class="bar-row">
-      <span>${m.slice(2).replace('-','/')}</span>
-      <div>
-        <div class="bar-track" style="margin-bottom:3px;"><div class="bar-fill hire" style="width:${hireCounts[i]/maxV*100}%"></div></div>
-        <div class="bar-track"><div class="bar-fill resign" style="width:${resignCounts[i]/maxV*100}%"></div></div>
-      </div>
-      <span>${hireCounts[i]}/${resignCounts[i]}</span>
-    </div>
-  `).join('');
+  const countFmt = v => `${Math.round(v)}人`;
+  $('trendBars').innerHTML = buildTrendLineChart(months, [
+    {data: hireCounts, color: '#3d8f6f', label: '入職'},
+    {data: resignCounts, color: '#c85c5c', label: '退職'}
+  ], {fmt: countFmt, fmtShort: countFmt});
 
   // company-level resign reasons (クリックで詳細)
   const reasonGroups = {};
@@ -1164,6 +1278,17 @@ function renderAnalytics(){
           key:'p_'+idx, label:n+'(パートナー)', list: scopedWorkers.filter(s=>s.channelType==='partner' && (s.channelDetail||'(パートナー名未入力)')===n)
         }))
       ];
+
+  // 経路別の内訳(稼働中の人数)をドーナツチャートで、パッと見て比率が分かるように
+  const donutPalette = ['#3852d6','#0f9e8f','#d98e3f','#e15c60','#7c5cbf','#2f9e6c','#c77dbf','#5c8ec9'];
+  const donutItems = children.map((c,idx)=>({
+    label: c.label,
+    value: c.list.filter(s=>s.status!=='resigned').length,
+    color: donutPalette[idx % donutPalette.length]
+  }));
+  $('compositionDonut').innerHTML = donutItems.some(it=>it.value>0)
+    ? buildDonutChart(donutItems, '稼働中')
+    : '<div class="empty">稼働中の稼働者がいません</div>';
 
   function groupHtml(groupLabel, groupList, children, keyPrefix){
     const r = rateOf(groupList);
@@ -1244,7 +1369,91 @@ function renderAnalytics(){
   bindDrillClicks(leaveEl);
 }
 
-function renderAll(){ renderWorkers(); renderManagers(); renderAnalytics(); }
+/* 案件名・パートナー名の入力欄に、過去に入力した値をプルダウン候補(datalist)として出す。
+   毎回同じ名前を打ち直す手間を減らすため。 */
+function populateHistoryDatalists(){
+  const projectNames = [...new Set(assignments.map(a=>a.projectName).filter(Boolean))].sort();
+  $('projectNameList').innerHTML = projectNames.map(n=>`<option value="${n}"></option>`).join('');
+  const partnerNames = [...new Set(workers.filter(w=>w.channelType==='partner').map(w=>w.channelDetail).filter(Boolean))].sort();
+  $('partnerNameList').innerHTML = partnerNames.map(n=>`<option value="${n}"></option>`).join('');
+}
+/* ============ render: home (今月のサマリー・お金の情報は含まない) ============ */
+/* KPIカードに添えるシンプルなアイコン(currentColorで色を継承)。数字を読まなくても
+   カードの意味がアイコンの形だけで分かるように。 */
+const HOME_ICONS = {
+  people: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`,
+  join: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="17" y1="11" x2="23" y2="11"/></svg>`,
+  leave: `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="17" y1="11" x2="23" y2="11"/></svg>`
+};
+function kpiIcon(name, color){
+  return `<div class="kpi-icon" style="background:${color}1a;color:${color};">${HOME_ICONS[name]}</div>`;
+}
+/* 前月比を「▲12%」のように矢印+色のバッジで見せる。invert=trueの時は増加が悪いことを表す(退職数など)。 */
+function trendBadge(curr, prev, invert){
+  curr = Number(curr)||0; prev = Number(prev)||0;
+  if(prev===0 && curr===0) return '';
+  if(prev===0) return `<span class="trend-badge trend-up">▲ NEW</span>`;
+  const pct = Math.round(((curr-prev)/Math.abs(prev))*100);
+  if(pct===0) return `<span class="trend-badge trend-flat">→ 前月同</span>`;
+  const isUp = pct>0;
+  const good = invert ? !isUp : isUp;
+  return `<span class="trend-badge ${good?'trend-up':'trend-down'}">${isUp?'▲':'▼'} ${Math.abs(pct)}%</span>`;
+}
+function renderHome(){
+  const now = new Date();
+  const thisMonthKey = localMonthStr(now);
+  $('homeTitle').textContent = `${now.getFullYear()}年${now.getMonth()+1}月のサマリー`;
+  $('homeMeta').textContent = `最終更新: ${new Date().toLocaleString('ja-JP')}`;
+
+  const activeCount = workers.filter(w=>w.status!=='resigned').length;
+  const hiresThisMonth = workers.filter(w=> w.hireDate && w.hireDate.slice(0,7)===thisMonthKey).length;
+  const leavingThisMonth = workers.filter(w=> (w.status==='retiring'||w.status==='resigned') && w.resignDate && w.resignDate.slice(0,7)===thisMonthKey).length;
+
+  // 前月分(前月比バッジ用)
+  const prevMonthKey = localMonthStr(new Date(now.getFullYear(), now.getMonth()-1, 1));
+  const prevHires = workers.filter(w=> w.hireDate && w.hireDate.slice(0,7)===prevMonthKey).length;
+  const prevLeaves = workers.filter(w=> w.resignDate && w.resignDate.slice(0,7)===prevMonthKey).length;
+
+  // 直近6ヶ月分のミニ推移(スパークライン用)
+  const sparkMonths = [];
+  const sd = new Date(); sd.setDate(1);
+  for(let i=5;i>=0;i--){ const dt = new Date(sd.getFullYear(), sd.getMonth()-i, 1); sparkMonths.push(localMonthStr(dt)); }
+  const sparkHires = sparkMonths.map(m=> workers.filter(w=>w.hireDate && w.hireDate.slice(0,7)===m).length);
+  const sparkLeaves = sparkMonths.map(m=> workers.filter(w=>(w.status==='retiring'||w.status==='resigned') && w.resignDate && w.resignDate.slice(0,7)===m).length);
+
+  $('homeKpiRow').innerHTML = `
+    <div class="kpi">${kpiIcon('people','#3852d6')}<div class="num">${activeCount}</div><div class="lbl">稼働中の人数</div><div style="height:30px;"></div></div>
+    <div class="kpi">${kpiIcon('join','#1f9d68')}<div class="num" style="color:var(--success);">${hiresThisMonth}${trendBadge(hiresThisMonth,prevHires,false)}</div><div class="lbl" style="color:var(--success);font-weight:600;">今月の入職</div>${buildSparkline(sparkHires,'#1f9d68')}</div>
+    <div class="kpi">${kpiIcon('leave','#c4881f')}<div class="num" style="color:#a3691a;">${leavingThisMonth}${trendBadge(leavingThisMonth,prevLeaves,true)}</div><div class="lbl" style="color:#a3691a;font-weight:600;">今月の退職(予定含む)</div>${buildSparkline(sparkLeaves,'#c4881f')}</div>
+  `;
+
+  const own = workers.filter(w=>w.channelType==='own' && w.status!=='resigned').length;
+  const partner = workers.filter(w=>w.channelType==='partner' && w.status!=='resigned').length;
+  $('homeChannelBars').innerHTML = (own+partner)>0
+    ? buildDonutChart([{label:'自社', value:own, color:'#3852d6'},{label:'パートナー', value:partner, color:'#0f9e8f'}], '稼働中')
+    : '<div class="empty">稼働中の稼働者がいません</div>';
+
+  const retiring = workers.filter(w=> w.status==='retiring' && w.resignDate && w.resignDate.slice(0,7)===thisMonthKey)
+    .sort((a,b)=>(a.resignDate||'').localeCompare(b.resignDate||''));
+  $('homeRetiringList').innerHTML = retiring.length
+    ? retiring.map(w=>{
+        const initial = (w.name||'?').charAt(0);
+        const daysLeft = Math.ceil((new Date(w.resignDate) - new Date())/(1000*60*60*24));
+        const urgent = daysLeft<=7, soon = !urgent && daysLeft<=14;
+        const avatarColor = urgent ? '#e15c60' : soon ? '#d98e3f' : '#3852d6';
+        const badgeCls = urgent ? 'trend-down' : soon ? 'trend-flat' : 'trend-up';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0;">
+          <div style="width:30px;height:30px;border-radius:50%;background:${avatarColor}22;color:${avatarColor};display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex:0 0 auto;">${initial}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${w.name}</div>
+            <div style="font-size:10.5px;color:var(--sub);">${formatDateJP(w.resignDate)}</div>
+          </div>
+          <span class="trend-badge ${badgeCls}">${daysLeft>=0? '残り'+daysLeft+'日' : '期限超過'}</span>
+        </div>`;
+      }).join('')
+    : '<div class="empty" style="padding:10px 0;">今月退職予定の稼働者はいません</div>';
+}
+function renderAll(){ renderWorkers(); renderManagers(); renderAnalytics(); populateHistoryDatalists(); renderHome(); }
 
 /* ============ worker modal ============ */
 function resetWorkerForm(){
@@ -1338,7 +1547,11 @@ function loadAssignmentToForm(id){
 }
 async function saveAssignment(){
   if($('a_btnSave').disabled) return; // 連打による二重保存を防ぐ
-  if(!editingWorkerId){ alert('先に稼働者を保存してください'); return; }
+  if(!editingWorkerId){
+    // 稼働者がまだ保存されていない場合は、先に稼働者を保存してからこの案件も続けて保存する
+    await saveWorker(false);
+    if(!editingWorkerId){ return; }
+  }
   const projectName = $('a_project').value.trim();
   if(!projectName){ alert('案件名を入力してください'); return; }
   $('a_btnSave').disabled = true;
@@ -1477,7 +1690,8 @@ async function autoTransitionRetiring(){
   return changed;
 }
 
-async function saveWorker(){
+async function saveWorker(chainAssignment){
+  if(chainAssignment===undefined) chainAssignment = true;
   if($('w_btnSave').disabled) return; // 連打による二重保存(重複レコード作成)を防ぐ
   const status = document.querySelector('input[name=w_status]:checked').value;
   const ctype = document.querySelector('input[name=w_ctype]:checked').value;
@@ -1520,17 +1734,26 @@ async function saveWorker(){
     lastPartnerName = record.channelDetail; lsSet('crm-last-partner', lastPartnerName);
   }
 
+  editingWorkerId = record.id;
+  const hasPendingAssignment = chainAssignment && !editingAssignmentId && $('a_project').value.trim() && $('a_start').value;
+
   if(isNew){
     // 新規保存後は同じモーダルを編集モードに切り替え、案件履歴を追加できるようにする
-    editingWorkerId = record.id;
     $('workerModalTitle').textContent = '稼働者を編集';
     $('w_btnDelete').style.display='inline-block';
     $('assignSection').style.display='block';
     $('assignHint').style.display='none';
-    renderAssignmentList();
-    renderAll();
     $('w_manager').value = record.managerId || '';
+    if(hasPendingAssignment){
+      await saveAssignment();
+    }else{
+      renderAssignmentList();
+      renderAll();
+    }
   }else{
+    if(hasPendingAssignment){
+      await saveAssignment();
+    }
     renderAll();
     closeWorkerModal();
   }
@@ -1597,7 +1820,8 @@ async function deleteManager(){
 /* ============ nav ============ */
 function switchView(view){
   document.querySelectorAll('nav.side button').forEach(b=> b.classList.toggle('active', b.dataset.view===view));
-  ['workers','managers','analytics'].forEach(v=> $('view-'+v).style.display = v===view?'block':'none');
+  ['home','workers','managers','analytics'].forEach(v=> $('view-'+v).style.display = v===view?'block':'none');
+  if(view==='home') renderHome();
   if(view==='analytics') renderAnalytics();
   if(view==='managers') renderManagers();
   if(view==='workers') renderWorkers();
@@ -1621,9 +1845,10 @@ $('btnAddWorker').addEventListener('click', ()=>{
   if(workerScopeTab==='own' || workerScopeTab==='partner') lastChannelType = workerScopeTab;
   openWorkerModal(null);
 });
+$('homeBtnAddWorker').addEventListener('click', ()=> openWorkerModal(null));
 document.querySelectorAll('.global-scope-tabs .scope-tab').forEach(b=> b.addEventListener('click', ()=> switchGlobalScope(b.dataset.scope)));
 $('w_btnCancel').addEventListener('click', closeWorkerModal);
-$('w_btnSave').addEventListener('click', saveWorker);
+$('w_btnSave').addEventListener('click', ()=> saveWorker());
 $('w_btnDelete').addEventListener('click', deleteWorker);
 $('workerOverlay').addEventListener('click', (e)=>{ if(e.target.id==='workerOverlay') closeWorkerModal(); });
 document.querySelectorAll('input[name=w_status]').forEach(r=> r.addEventListener('change', toggleWorkerStatusFields));
