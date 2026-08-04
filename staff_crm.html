@@ -65,7 +65,8 @@
   nav.side .brand{font-family:'Zen Kaku Gothic New';font-weight:900;font-size:17px;padding:0 22px 20px;letter-spacing:.03em;margin-bottom:10px;color:#fff;display:flex;align-items:center;gap:9px;border-bottom:1px solid rgba(255,255,255,.1);}
   nav.side .brand::before{content:'';width:9px;height:9px;border-radius:3px;background:var(--gold);flex:0 0 auto;box-shadow:0 0 0 4px rgba(227,167,62,.22);}
   nav.side .brand span{display:block;font-size:10.5px;font-weight:600;color:rgba(255,255,255,.5);margin-top:4px;letter-spacing:.08em;font-family:'Noto Sans JP';}
-  nav.side button{display:block;width:calc(100% - 24px);margin:2px 12px;text-align:left;background:none;border:none;color:rgba(255,255,255,.7);padding:10px 13px;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:600;border-radius:10px;}
+  nav.side button{display:flex;align-items:center;gap:10px;width:calc(100% - 24px);margin:2px 12px;text-align:left;background:none;border:none;color:rgba(255,255,255,.7);padding:10px 13px;font-size:13.5px;cursor:pointer;font-family:inherit;font-weight:600;border-radius:10px;}
+  nav.side button svg{flex:0 0 auto;opacity:.9;}
   nav.side button:hover{background:rgba(255,255,255,.08);color:#fff;}
   nav.side button.active{color:#20232e;background:var(--gold);box-shadow:var(--shadow-md);}
   nav.side button.active:hover{background:var(--gold-2);color:#20232e;}
@@ -251,6 +252,7 @@
   .scope-tabs button:hover:not(.active){color:var(--ink);}
 
   .empty{text-align:center;color:var(--sub);font-size:13px;padding:34px 10px;}
+  .empty::before{content:'';display:block;width:34px;height:34px;margin:0 auto 9px;opacity:.4;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239298a8' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 8l-1.5-3.5A2 2 0 0 0 17.7 3H6.3a2 2 0 0 0-1.8 1.5L3 8'/%3E%3Cpath d='M3 8v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8'/%3E%3Cpath d='M3 8h18'/%3E%3Cpath d='M9 12a3 3 0 0 0 6 0'/%3E%3C/svg%3E");}
   .sync-row{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--sub);flex-wrap:wrap;}
   .sync-row input{flex:1;min-width:180px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;font-size:11px;background:var(--input-bg);}
   .status-dot{width:7px;height:7px;border-radius:50%;background:#bbb;display:inline-block;}
@@ -268,10 +270,10 @@
     <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:5px;">
       <span class="status-dot" id="syncDot"></span>
     </div>
-    <button class="active" data-view="home">ホーム</button>
-    <button data-view="workers">稼働者一覧</button>
-    <button data-view="managers">担当者別サマリー</button>
-    <button data-view="analytics">分析ダッシュボード</button>
+    <button class="active" data-view="home"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>ホーム</button>
+    <button data-view="workers"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>稼働者一覧</button>
+    <button data-view="managers"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>担当者別サマリー</button>
+    <button data-view="analytics"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12.5" y="8" width="3" height="10"/><rect x="18" y="5" width="3" height="13"/></svg>分析ダッシュボード</button>
   </nav>
 
   <main>
@@ -456,7 +458,10 @@
 <!-- ===== WORKER MODAL ===== -->
 <div class="overlay" id="workerOverlay">
   <div class="modal">
-    <h2 id="workerModalTitle">稼働者を追加</h2>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:2px;">
+      <div id="w_avatarPreview" style="width:44px;height:44px;border-radius:50%;background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;flex:0 0 auto;">?</div>
+      <h2 id="workerModalTitle" style="margin:0;">稼働者を追加</h2>
+    </div>
     <input type="hidden" id="w_id">
 
     <div class="field"><label>氏名</label><input id="w_name" placeholder="佐藤 太郎"></div>
@@ -553,7 +558,10 @@
 <!-- ===== MANAGER MODAL ===== -->
 <div class="overlay" id="managerOverlay">
   <div class="modal">
-    <h2 id="managerModalTitle">担当者を追加</h2>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:2px;">
+      <div id="m_avatarPreview" style="width:44px;height:44px;border-radius:50%;background:#e3a73e22;color:#c4881f;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:19px;flex:0 0 auto;">?</div>
+      <h2 id="managerModalTitle" style="margin:0;">担当者を追加</h2>
+    </div>
     <input type="hidden" id="m_id">
     <div class="field"><label>担当者名</label><input id="m_name" placeholder="鈴木 一郎"></div>
     <div class="field"><label>メモ</label><textarea id="m_memo" placeholder="任意"></textarea></div>
@@ -751,9 +759,9 @@ function channelLabel(s){
   return 'パートナー/' + (s.channelDetail||'-');
 }
 function statusMeta(s){
-  if(s.status==='retiring') return {cls:'retiring', label:'退職予定'};
-  if(s.status==='resigned') return {cls:'resigned', label:'退職済み'};
-  return {cls:'active', label:'稼働中'};
+  if(s.status==='retiring') return {cls:'retiring', label:'退職予定', icon:'●'};
+  if(s.status==='resigned') return {cls:'resigned', label:'退職済み', icon:'○'};
+  return {cls:'active', label:'稼働中', icon:'●'};
 }
 function managerName(id){
   const m = managers.find(x=>x.id===id);
@@ -763,6 +771,24 @@ function currentAssignment(workerId){
   const list = assignments.filter(a=>a.workerId===workerId && !a.endDate);
   if(!list.length) return null;
   return [...list].sort((a,b)=>(b.startDate||'').localeCompare(a.startDate||''))[0];
+}
+/* 稼働者・担当者の名前の横に付ける、イニシャル入りの丸いアバター。
+   自社=紺, パートナー=ティール, 退職済=グレー, 退職予定=アンバー、で色分けし、
+   バッジを読まなくても種別・状態がパッと分かるようにする。 */
+function workerAvatar(w, size){
+  size = size || 28;
+  const initial = (w.name||'?').charAt(0) || '?';
+  let color = w.channelType==='partner' ? '#0f9e8f' : '#3852d6';
+  if(w.status==='resigned') color = '#9298a8';
+  else if(w.status==='retiring') color = '#d98e3f';
+  const fs = Math.round(size*0.42);
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color}22;color:${color};display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:${fs}px;flex:0 0 auto;">${initial}</div>`;
+}
+function managerAvatar(name, size){
+  size = size || 26;
+  const initial = (name||'?').charAt(0) || '?';
+  const fs = Math.round(size*0.42);
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;background:#e3a73e22;color:#c4881f;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:${fs}px;flex:0 0 auto;">${initial}</div>`;
 }
 /* 稼働者一覧の「案件履歴」列: 現在の案件だけでなく、これまでの全案件をチップで表示する。
    (この制限版では単価情報は表示しない) */
@@ -863,11 +889,12 @@ function renderWorkers(){
   const sorted = [...filtered].sort(sorters[sortMode] || sorters.hire_desc);
   for(const s of sorted){
     const sm = statusMeta(s);
+    const statusColor = sm.cls==='active' ? 'var(--success)' : sm.cls==='retiring' ? 'var(--amber)' : 'var(--coral)';
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${s.name||'(名称未設定)'}</td>
+      <td style="border-left:3px solid ${statusColor};"><div style="display:flex;align-items:center;gap:9px;">${workerAvatar(s)}<span>${s.name||'(名称未設定)'}</span></div></td>
       <td>${managerName(s.managerId)}</td>
-      <td><span class="badge ${sm.cls}">${sm.label}</span></td>
+      <td><span class="badge ${sm.cls}">${sm.icon} ${sm.label}</span></td>
       <td>${formatDateJP(s.hireDate)}</td>
       <td>${formatDateJP(s.resignDate)}</td>
       <td><span class="chip">${channelLabel(s)}</span></td>
@@ -956,6 +983,18 @@ function ensureMgFilterPanel(){
   }));
   updateMgFilterSummary();
 }
+/* 継続率などのパーセンテージを、数字だけでなく色付きのミニバーでも見せる。
+   80%以上=緑、60%以上=黄、それ未満=赤、で健全度がパッと分かるようにする。 */
+function retentionBar(rate){
+  if(rate===null) return '<span style="color:var(--sub);">-</span>';
+  const color = rate>=80 ? '#1f9d68' : rate>=60 ? '#d98e3f' : '#e15c60';
+  return `<div style="display:flex;align-items:center;gap:7px;">
+    <div style="flex:1;max-width:56px;height:6px;border-radius:4px;background:var(--surface-2);overflow:hidden;">
+      <div style="width:${Math.min(100,rate)}%;height:100%;background:${color};"></div>
+    </div>
+    <span style="font-weight:800;color:${color};font-size:12px;white-space:nowrap;">${rate}%</span>
+  </div>`;
+}
 function renderManagers(){
   populateManagerSelects();
   ensureMgFilterPanel();
@@ -977,11 +1016,11 @@ function renderManagerTable(){
 
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${m.name}</td>
+      <td><div style="display:flex;align-items:center;gap:9px;">${managerAvatar(m.name)}<span>${m.name}</span></div></td>
       <td>${activeList.length}人</td>
       <td>${list.length}人</td>
       <td>${resignedList.length}人</td>
-      <td>${rate===null?'-':rate+'%'}</td>
+      <td>${retentionBar(rate)}</td>
       <td>${monthsToStr(avgActive)}</td>
       <td>${monthsToStr(avgResigned)}</td>
       <td>${m.memo||''}</td>
@@ -1038,20 +1077,20 @@ function drillListHtml(list){
   if(!list.length) return '<div class="drill-empty">対象者なし</div>';
   return [...list].sort((a,b)=>(b.hireDate||'').localeCompare(a.hireDate||'')).map(s=>{
     const sm = statusMeta(s);
-    return `<div class="drill-row"><span>${s.name||'(名称未設定)'} <span style="color:var(--sub);">/ ${managerName(s.managerId)}</span></span><span><span class="badge ${sm.cls}" style="margin-right:6px;">${sm.label}</span>${fmtTenure(s)}</span></div>`;
+    return `<div class="drill-row"><span style="display:flex;align-items:center;gap:6px;">${workerAvatar(s,18)}${s.name||'(名称未設定)'} <span style="color:var(--sub);">/ ${managerName(s.managerId)}</span></span><span><span class="badge ${sm.cls}" style="margin-right:6px;">${sm.icon} ${sm.label}</span>${fmtTenure(s)}</span></div>`;
   }).join('');
 }
 function drillListHtmlForResign(list){
   if(!list.length) return '<div class="drill-empty">対象者なし</div>';
   return [...list].sort((a,b)=>(b.resignDate||'').localeCompare(a.resignDate||'')).map(s=>`
-    <div class="drill-row"><span>${s.name||'(名称未設定)'} <span style="color:var(--sub);">/ ${managerName(s.managerId)}</span></span><span>${formatDateJP(s.resignDate)}${s.resignReasonNote? ' ・ '+s.resignReasonNote : ''}</span></div>
+    <div class="drill-row"><span style="display:flex;align-items:center;gap:6px;">${workerAvatar(s,18)}${s.name||'(名称未設定)'} <span style="color:var(--sub);">/ ${managerName(s.managerId)}</span></span><span>${formatDateJP(s.resignDate)}${s.resignReasonNote? ' ・ '+s.resignReasonNote : ''}</span></div>
   `).join('');
 }
 function drillListHtmlForLeave(list){
   if(!list.length) return '<div class="drill-empty">対象者なし</div>';
   return [...list].sort((a,b)=>(b.endDate||'').localeCompare(a.endDate||'')).map(a=>{
     const w = workers.find(x=>x.id===a.workerId);
-    return `<div class="drill-row"><span>${w? w.name : '(削除済み)'} <span style="color:var(--sub);">/ ${a.projectName||'-'}</span></span><span>${formatDateJP(a.endDate)}${a.memo? ' ・ '+a.memo : ''}</span></div>`;
+    return `<div class="drill-row"><span style="display:flex;align-items:center;gap:6px;">${w? workerAvatar(w,18) : ''}${w? w.name : '(削除済み)'} <span style="color:var(--sub);">/ ${a.projectName||'-'}</span></span><span>${formatDateJP(a.endDate)}${a.memo? ' ・ '+a.memo : ''}</span></div>`;
   }).join('');
 }
 function bindDrillClicks(container){
@@ -1378,6 +1417,25 @@ function populateHistoryDatalists(){
   $('partnerNameList').innerHTML = partnerNames.map(n=>`<option value="${n}"></option>`).join('');
 }
 /* ============ render: home (今月のサマリー・お金の情報は含まない) ============ */
+/* KPIカードに埋め込む、軸なしの小さな推移グラフ(スパークライン)。
+   数字だけでなく線の形からも「増えてる/減ってる」がパッと分かるようにする。 */
+function buildSparkline(data, color){
+  const w=100, h=30;
+  if(!data.length || data.every(v=>v===0)) return `<div style="height:${h}px;"></div>`;
+  const max = Math.max(...data, 0);
+  const min = Math.min(...data, 0);
+  const range = (max-min) || 1;
+  const step = data.length>1 ? w/(data.length-1) : 0;
+  const yOf = v => h - 3 - ((v-min)/range)*(h-6);
+  const pts = data.map((v,i)=> `${i*step},${yOf(v)}`).join(' ');
+  const lastX = (data.length-1)*step, lastY = yOf(data[data.length-1]);
+  const areaPts = `0,${h} ${pts} ${lastX},${h}`;
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:${h}px;display:block;margin-top:7px;">
+    <polyline points="${areaPts}" fill="${color}" opacity=".12" stroke="none"/>
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${lastX}" cy="${lastY}" r="2.6" fill="${color}"/>
+  </svg>`;
+}
 /* KPIカードに添えるシンプルなアイコン(currentColorで色を継承)。数字を読まなくても
    カードの意味がアイコンの形だけで分かるように。 */
 const HOME_ICONS = {
