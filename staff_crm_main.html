@@ -2264,30 +2264,39 @@ function trendBadge(curr, prev, invert){
 function renderHome(){
   const now = new Date();
   const thisMonthKey = localMonthStr(now);
+  // 実績(単価×稼働時間)の入力は「稼働した月の翌月」に行う運用のため、
+  // 売上・粗利だけは1ヶ月前(＝一番新しく確定している稼働分)を「今月の実績」として表示する。
+  // 例: 8月に見ているのは、7月に稼働した分の売上・粗利。
+  const revenueMonthDate = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const revenueMonthKey = localMonthStr(revenueMonthDate);
+  const revenueMonthLabel = `${revenueMonthDate.getMonth()+1}月分`;
   $('homeTitle').textContent = `${now.getFullYear()}年${now.getMonth()+1}月のサマリー`;
   $('homeMeta').textContent = `最終更新: ${new Date().toLocaleString('ja-JP')}`;
 
-  const monthRecords = monthlyRecords.filter(r=> r.yearMonth===thisMonthKey);
+  const monthRecords = monthlyRecords.filter(r=> r.yearMonth===revenueMonthKey);
   const sumRevenue = monthRecords.reduce((s,r)=> s + (Number(r.revenue)||0), 0);
   const sumProfit = monthRecords.reduce((s,r)=> s + (Number(r.grossProfit)||0), 0);
   const activeCount = workers.filter(w=>w.status!=='resigned').length;
   const hiresThisMonth = workers.filter(w=> w.hireDate && w.hireDate.slice(0,7)===thisMonthKey).length;
   const leavingThisMonth = workers.filter(w=> (w.status==='retiring'||w.status==='resigned') && w.resignDate && w.resignDate.slice(0,7)===thisMonthKey).length;
 
-  // 前月分(前月比バッジ用)
+  // 前月分(前月比バッジ用)。売上・粗利は「表示している稼働月」のさらに1つ前の月と比較する。
   const prevMonthKey = localMonthStr(new Date(now.getFullYear(), now.getMonth()-1, 1));
-  const prevMonthRecords = monthlyRecords.filter(r=> r.yearMonth===prevMonthKey);
+  const prevRevenueMonthKey = localMonthStr(new Date(revenueMonthDate.getFullYear(), revenueMonthDate.getMonth()-1, 1));
+  const prevMonthRecords = monthlyRecords.filter(r=> r.yearMonth===prevRevenueMonthKey);
   const prevRevenue = prevMonthRecords.reduce((s,r)=> s + (Number(r.revenue)||0), 0);
   const prevProfit = prevMonthRecords.reduce((s,r)=> s + (Number(r.grossProfit)||0), 0);
   const prevHires = workers.filter(w=> w.hireDate && w.hireDate.slice(0,7)===prevMonthKey).length;
   const prevLeaves = workers.filter(w=> w.resignDate && w.resignDate.slice(0,7)===prevMonthKey).length;
 
-  // 直近6ヶ月分のミニ推移(スパークライン用)
+  // 直近6ヶ月分のミニ推移(スパークライン用)。売上・粗利は稼働月(1ヶ月前基準)、入退職は暦月基準。
   const sparkMonths = [];
   const sd = new Date(); sd.setDate(1);
   for(let i=5;i>=0;i--){ const dt = new Date(sd.getFullYear(), sd.getMonth()-i, 1); sparkMonths.push(localMonthStr(dt)); }
-  const sparkRevenue = sparkMonths.map(m=> monthlyRecords.filter(r=>r.yearMonth===m).reduce((s,r)=>s+(Number(r.revenue)||0),0));
-  const sparkProfit = sparkMonths.map(m=> monthlyRecords.filter(r=>r.yearMonth===m).reduce((s,r)=>s+(Number(r.grossProfit)||0),0));
+  const sparkRevenueMonths = [];
+  for(let i=5;i>=0;i--){ const dt = new Date(revenueMonthDate.getFullYear(), revenueMonthDate.getMonth()-i, 1); sparkRevenueMonths.push(localMonthStr(dt)); }
+  const sparkRevenue = sparkRevenueMonths.map(m=> monthlyRecords.filter(r=>r.yearMonth===m).reduce((s,r)=>s+(Number(r.revenue)||0),0));
+  const sparkProfit = sparkRevenueMonths.map(m=> monthlyRecords.filter(r=>r.yearMonth===m).reduce((s,r)=>s+(Number(r.grossProfit)||0),0));
   const sparkHires = sparkMonths.map(m=> workers.filter(w=>w.hireDate && w.hireDate.slice(0,7)===m).length);
   const sparkLeaves = sparkMonths.map(m=> workers.filter(w=>(w.status==='retiring'||w.status==='resigned') && w.resignDate && w.resignDate.slice(0,7)===m).length);
 
@@ -2295,8 +2304,8 @@ function renderHome(){
     <div class="kpi">${kpiIcon('people','#3852d6')}<div class="num">${activeCount}</div><div class="lbl">稼働中の人数</div><div style="height:30px;"></div></div>
     <div class="kpi">${kpiIcon('join','#1f9d68')}<div class="num" style="color:var(--success);">${hiresThisMonth}${trendBadge(hiresThisMonth,prevHires,false)}</div><div class="lbl" style="color:var(--success);font-weight:600;">今月の入職</div>${buildSparkline(sparkHires,'#1f9d68')}</div>
     <div class="kpi">${kpiIcon('leave','#c4881f')}<div class="num" style="color:#a3691a;">${leavingThisMonth}${trendBadge(leavingThisMonth,prevLeaves,true)}</div><div class="lbl" style="color:#a3691a;font-weight:600;">今月の退職(予定含む)</div>${buildSparkline(sparkLeaves,'#c4881f')}</div>
-    <div class="kpi">${kpiIcon('yen','#2f9e4f')}<div class="num" style="color:${'#2f9e4f'};">¥${Math.round(sumRevenue).toLocaleString()}${trendBadge(sumRevenue,prevRevenue,false)}</div><div class="lbl">今月の売上</div>${buildSparkline(sparkRevenue,'#2f9e4f')}</div>
-    <div class="kpi">${kpiIcon('profit','#9ccb3b')}<div class="num" style="color:${'#9ccb3b'};">¥${Math.round(sumProfit).toLocaleString()}${trendBadge(sumProfit,prevProfit,false)}</div><div class="lbl">今月の粗利</div>${buildSparkline(sparkProfit,'#9ccb3b')}</div>
+    <div class="kpi">${kpiIcon('yen','#2f9e4f')}<div class="num" style="color:${'#2f9e4f'};">¥${Math.round(sumRevenue).toLocaleString()}${trendBadge(sumRevenue,prevRevenue,false)}</div><div class="lbl">売上<span style="color:var(--sub-2);font-weight:400;">(${revenueMonthLabel})</span></div>${buildSparkline(sparkRevenue,'#2f9e4f')}</div>
+    <div class="kpi">${kpiIcon('profit','#9ccb3b')}<div class="num" style="color:${'#9ccb3b'};">¥${Math.round(sumProfit).toLocaleString()}${trendBadge(sumProfit,prevProfit,false)}</div><div class="lbl">粗利<span style="color:var(--sub-2);font-weight:400;">(${revenueMonthLabel})</span></div>${buildSparkline(sparkProfit,'#9ccb3b')}</div>
   `;
 
   const own = workers.filter(w=>w.channelType==='own' && w.status!=='resigned').length;
