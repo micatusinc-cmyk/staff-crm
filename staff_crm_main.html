@@ -276,8 +276,9 @@
   <div class="nav-backdrop" id="navBackdrop"></div>
   <nav class="side" id="navSide">
     <div class="brand">ReLGroup<span>稼働者管理(マスタ)</span></div>
-    <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:5px;">
+    <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:6px;">
       <span class="status-dot" id="syncDot"></span>
+      <button type="button" id="btnSyncNow" style="background:none;border:none;color:rgba(255,255,255,.55);font-size:10px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">今すぐ同期</button>
     </div>
     <button class="active" data-view="home"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>ホーム</button>
     <button data-view="workers"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>稼働者一覧</button>
@@ -806,11 +807,16 @@ async function syncDeleteRecord(entity, id){
 async function pullFromSheet(silent){
   if(!gasUrl){ if(!silent) alert('先にGAS連携URLを保存してください'); return; }
   try{
+    // fetch()はデフォルトだとブラウザのHTTPキャッシュを見に行くことがあり、
+    // ページを再読み込みしても古いデータが返ってくる原因になっていた。
+    // cache:'no-store' と毎回変わるクエリパラメータの両方で確実にキャッシュを回避する。
+    const bust = Date.now();
+    const fetchOpts = {cache:'no-store'};
     const [wr, mr, ar, mor] = await Promise.all([
-      fetch(gasUrl + '?entity=worker').then(r=>r.json()),
-      fetch(gasUrl + '?entity=manager').then(r=>r.json()),
-      fetch(gasUrl + '?entity=assignment').then(r=>r.json()),
-      fetch(gasUrl + '?entity=monthly').then(r=>r.json())
+      fetch(gasUrl + '?entity=worker&_=' + bust, fetchOpts).then(r=>r.json()),
+      fetch(gasUrl + '?entity=manager&_=' + bust, fetchOpts).then(r=>r.json()),
+      fetch(gasUrl + '?entity=assignment&_=' + bust, fetchOpts).then(r=>r.json()),
+      fetch(gasUrl + '?entity=monthly&_=' + bust, fetchOpts).then(r=>r.json())
     ]);
     if(Array.isArray(wr)) workers = wr;
     if(Array.isArray(mr)) managers = mr;
@@ -2854,6 +2860,7 @@ function toggleNavDrawer(){
   $('navBackdrop').classList.toggle('open', open);
 }
 $('navToggle').addEventListener('click', toggleNavDrawer);
+$('btnSyncNow').addEventListener('click', ()=> pullFromSheet(false));
 $('navBackdrop').addEventListener('click', closeNavDrawer);
 document.querySelectorAll('nav.side button').forEach(b=> b.addEventListener('click', ()=>{ switchView(b.dataset.view); closeNavDrawer(); }));
 $('btnAddWorker').addEventListener('click', ()=>{
