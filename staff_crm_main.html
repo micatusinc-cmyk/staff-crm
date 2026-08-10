@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ReLGroup稼働者管理(マスタ)</title>
+<title>ReLGroup稼働者管理</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -276,7 +275,7 @@
   <button class="nav-toggle" id="navToggle" aria-label="メニューを開く"><span></span></button>
   <div class="nav-backdrop" id="navBackdrop"></div>
   <nav class="side" id="navSide">
-    <div class="brand">ReLGroup<span>稼働者管理(マスタ)</span></div>
+    <div class="brand">ReLGroup<span>稼働者管理</span></div>
     <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:6px;">
       <span class="status-dot" id="syncDot"></span>
       <button type="button" id="btnSyncNow" style="background:none;border:none;color:rgba(255,255,255,.55);font-size:10px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">今すぐ同期</button>
@@ -318,7 +317,10 @@
     <section id="view-workers" style="display:none;">
       <div class="topbar">
         <div><h1>稼働者一覧</h1><div class="meta" id="workerMeta">-</div></div>
-        <button class="btn" id="btnAddWorker">＋ 稼働者を追加</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn ghost" id="btnExportWorkersCsv">⭳ CSV出力</button>
+          <button class="btn" id="btnAddWorker">＋ 稼働者を追加</button>
+        </div>
       </div>
 
       <div class="scope-tabs global-scope-tabs" id="workerScopeTabs">
@@ -338,6 +340,7 @@
           <option value="resigned">退職済み</option>
         </select>
         <select id="filterChannel"></select>
+        <input type="month" id="filterHireMonth" title="入職月で絞り込み">
         <input id="filterSearch" placeholder="氏名で検索">
         <select id="sortOrder">
           <option value="hire_desc">入職日: 新しい順</option>
@@ -349,7 +352,7 @@
 
       <div class="card">
         <div class="table-scroll">
-        <table>
+        <table id="workerTable">
           <thead>
             <tr><th>氏名</th><th>担当者</th><th>状態</th><th>入職日</th><th>退職(予定)日</th><th>経路</th><th>単価</th><th>案件履歴(単価)</th><th>在籍期間</th><th></th></tr>
           </thead>
@@ -409,6 +412,16 @@
         <input type="month" id="revMonthFilter">
         <select id="revManagerFilter"><option value="all">担当者: 全て</option></select>
         <input id="revSearch" placeholder="氏名で検索">
+        <select id="revSortOrder">
+          <option value="month_desc">対象月: 新しい順</option>
+          <option value="updated_desc">更新: 新しい順</option>
+          <option value="updated_asc">更新: 古い順</option>
+          <option value="name">名前順</option>
+          <option value="price_desc">単価: 高い順</option>
+          <option value="price_asc">単価: 低い順</option>
+          <option value="hire_asc">入職: 古い順</option>
+          <option value="hire_desc">入職: 新しい順</option>
+        </select>
       </div>
 
       <div class="card">
@@ -842,6 +855,27 @@ function uid(p){ return (p||'id') + '_' + Date.now() + Math.random().toString(36
    日付や月が1つズレることがあるため、必ずローカル時刻の値からゼロ埋めで組み立てる。
    例: new Date(2026,7,1).toISOString() は JST だと "2026-07-31T15:00:00.000Z" になり、
    月キーが8月ではなく7月になってしまう不具合があった。 */
+/* 今テーブルに表示されている内容(フィルター・並び替え適用後)を、そのままCSVとして書き出す。
+   最後の列(編集/削除などの操作ボタン)は除外する。 */
+function exportTableToCSV(tableEl, filename){
+  if(!tableEl) return;
+  const rows = [...tableEl.querySelectorAll('tr')];
+  if(!rows.length){ alert('出力できるデータがありません'); return; }
+  const csvLines = rows.map(tr=>{
+    const cells = [...tr.querySelectorAll('th,td')];
+    return cells.slice(0, -1).map(cell=>{
+      const text = cell.textContent.replace(/\s+/g,' ').trim();
+      return '"' + text.replace(/"/g,'""') + '"';
+    }).join(',');
+  });
+  const csvContent = '\uFEFF' + csvLines.join('\r\n'); // 先頭にBOMを付けてExcelでの文字化けを防ぐ
+  const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 function localDateStr(d){
   d = d || new Date();
   const y = d.getFullYear();
@@ -1031,6 +1065,7 @@ function renderWorkers(){
   const fManager = $('filterManager').value;
   const fStatus = $('filterStatus').value;
   const fChannel = $('filterChannel').value;
+  const fHireMonth = $('filterHireMonth').value;
   const fSearch = $('filterSearch').value.trim().toLowerCase();
 
   const scoped = workers.filter(s=>matchesWorkerScope(s, workerScopeTab));
@@ -1038,6 +1073,7 @@ function renderWorkers(){
     (fManager==='all' || s.managerId===fManager) &&
     (fStatus==='all' || s.status===fStatus) &&
     matchesChannelFilter(s, fChannel) &&
+    (!fHireMonth || (s.hireDate||'').slice(0,7)===fHireMonth) &&
     (!fSearch || (s.name||'').toLowerCase().includes(fSearch))
   );
 
@@ -1208,6 +1244,7 @@ function renderManagerTable(){
 /* ============ render: revenue (売上管理) ============ */
 let editingMonthlyId = null;
 let collapsedRevenueMonths = new Set(); // 売上管理テーブルで折りたたまれている対象月
+let mgBarsExpanded = false; // 担当者別 売上比較を全部見せるかどうか
 let editingSegments = [{unitPrice:'', workHours:'', days:'', adjustHours:'', overtime:false}];
 let revFilterSignature = '';
 let revMonthFilterInitialized = false;
@@ -1764,7 +1801,28 @@ function renderRevenue(){
   if(fMonth) list = list.filter(r=> r.yearMonth===fMonth);
   if(fManager!=='all') list = list.filter(r=>{ const w=workers.find(x=>x.id===r.workerId); return w && w.managerId===fManager; });
   if(fSearch) list = list.filter(r=>{ const w=workers.find(x=>x.id===r.workerId); return w && (w.name||'').toLowerCase().includes(fSearch); });
-  list = [...list].sort((a,b)=> (b.yearMonth||'').localeCompare(a.yearMonth||''));
+  // ソート順(revSortOrderの選択に応じて切り替え。デフォルトは対象月が新しい順→同月内は氏名順)
+  const revSortMode = $('revSortOrder').value;
+  const repPriceOf = r => {
+    const segs = monthlySegmentsOf(r).map(s=>Number(s.unitPrice)||0);
+    return segs.length ? Math.max(...segs) : 0;
+  };
+  const nameOf = r => { const w=workers.find(x=>x.id===r.workerId); return w?.name||''; };
+  const hireDateOf = r => { const w=workers.find(x=>x.id===r.workerId); return w?.hireDate||''; };
+  const revSorters = {
+    month_desc: (a,b)=>{
+      const d = (b.yearMonth||'').localeCompare(a.yearMonth||'');
+      return d!==0 ? d : nameOf(a).localeCompare(nameOf(b), 'ja');
+    },
+    updated_desc: (a,b)=> (b.updatedAt||'').localeCompare(a.updatedAt||''),
+    updated_asc: (a,b)=> (a.updatedAt||'').localeCompare(b.updatedAt||''),
+    name: (a,b)=> nameOf(a).localeCompare(nameOf(b), 'ja'),
+    price_desc: (a,b)=> repPriceOf(b) - repPriceOf(a),
+    price_asc: (a,b)=> repPriceOf(a) - repPriceOf(b),
+    hire_asc: (a,b)=> hireDateOf(a).localeCompare(hireDateOf(b)),
+    hire_desc: (a,b)=> hireDateOf(b).localeCompare(hireDateOf(a)),
+  };
+  list = [...list].sort(revSorters[revSortMode] || revSorters.month_desc);
 
   const tbody = $('revenueTbody');
   tbody.innerHTML='';
@@ -1812,8 +1870,8 @@ function renderRevenue(){
   }
 
   const colCount = 7 + (showWorkerPayCol?1:0) + (showPartnerFeeCol?1:0) + 1;
-  if(fMonth){
-    // 対象月で絞り込み中はグループ化不要、そのまま並べる
+  if(fMonth || revSortMode!=='month_desc'){
+    // 対象月で絞り込み中、または対象月以外の並び順を選んでいるときはグループ化せずそのまま並べる
     list.forEach(r=> tbody.appendChild(buildRevenueRow(r)));
   }else{
     // 対象月ごとにまとめ、クリックで開閉できるようにする(直近の月だけ初期状態で開いておく)
@@ -1900,7 +1958,9 @@ function renderRevenue(){
     $('revenueMgBars').innerHTML = '<div class="empty">担当者が未登録か、対象データがありません</div>';
   }else{
     const maxMg = Math.max(1, ...mgArr.map(x=>x.revenue));
-    $('revenueMgBars').innerHTML = mgArr.map((x,idx)=>`
+    const MG_SHOW_LIMIT = 5;
+    const mgVisible = mgBarsExpanded ? mgArr : mgArr.slice(0, MG_SHOW_LIMIT);
+    $('revenueMgBars').innerHTML = mgVisible.map((x,idx)=>`
       <div class="bar-row clickable" data-drill="rmg_${idx}">
         <span>${x.name}</span>
         <div>
@@ -1915,11 +1975,12 @@ function renderRevenue(){
           return `<div class="drill-row"><span>${w?w.name:'(削除済み)'} / ${r.yearMonth}</span><span>売上¥${Number(r.revenue||0).toLocaleString()} ・ 粗利¥${Number(r.grossProfit||0).toLocaleString()}</span></div>`;
         }).join('') : '<div class="drill-empty">対象データなし</div>'
       }</div>
-    `).join('');
+    `).join('') + (mgArr.length > MG_SHOW_LIMIT ? `<button type="button" class="btn ghost small" id="mgBarsToggle" style="margin-top:8px;">${mgBarsExpanded ? '折りたたむ' : `もっと見る(他${mgArr.length - MG_SHOW_LIMIT}件)`}</button>` : '');
     document.querySelectorAll('#revenueMgBars [data-drill]').forEach(row=> row.addEventListener('click', ()=>{
       const el = $('drill-'+row.dataset.drill);
       if(el) el.classList.toggle('open');
     }));
+    if($('mgBarsToggle')) $('mgBarsToggle').addEventListener('click', ()=>{ mgBarsExpanded = !mgBarsExpanded; renderRevenue(); });
   }
 }
 
@@ -2866,6 +2927,9 @@ $('navToggle').addEventListener('click', toggleNavDrawer);
 $('btnSyncNow').addEventListener('click', ()=> pullFromSheet(false));
 $('navBackdrop').addEventListener('click', closeNavDrawer);
 document.querySelectorAll('nav.side button').forEach(b=> b.addEventListener('click', ()=>{ switchView(b.dataset.view); closeNavDrawer(); }));
+$('btnExportWorkersCsv').addEventListener('click', ()=>{
+  exportTableToCSV($('workerTable'), `稼働者一覧_${localDateStr()}.csv`);
+});
 $('btnAddWorker').addEventListener('click', ()=>{
   if(workerScopeTab==='own' || workerScopeTab==='partner') lastChannelType = workerScopeTab;
   openWorkerModal(null);
@@ -2936,10 +3000,12 @@ $('mo_partnerFee_auto').addEventListener('change', recalcAutoPay);
 $('revMonthFilter').addEventListener('change', renderRevenue);
 $('revManagerFilter').addEventListener('change', renderRevenue);
 $('revSearch').addEventListener('input', renderRevenue);
+$('revSortOrder').addEventListener('change', renderRevenue);
 
 $('filterManager').addEventListener('change', renderWorkers);
 $('filterStatus').addEventListener('change', renderWorkers);
 $('filterChannel').addEventListener('change', renderWorkers);
+$('filterHireMonth').addEventListener('change', renderWorkers);
 $('filterSearch').addEventListener('input', renderWorkers);
 $('sortOrder').addEventListener('change', renderWorkers);
 $('analyticsManagerFilter').addEventListener('change', ()=>{
