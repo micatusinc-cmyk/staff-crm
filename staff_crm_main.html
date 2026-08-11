@@ -721,7 +721,13 @@
     <h2 id="monthlyModalTitle">実績を追加</h2>
     <input type="hidden" id="mo_id">
     <div class="field"><label>対象月</label><input type="month" id="mo_yearMonth"></div>
-    <div class="field"><label>稼働者</label><select id="mo_worker"></select></div>
+    <div class="field">
+      <label>稼働者</label>
+      <select id="mo_worker"></select>
+      <label style="font-size:11px;color:var(--sub);font-weight:500;display:flex;align-items:center;gap:5px;margin-top:6px;">
+        <input type="checkbox" id="mo_showAllWorkers">対象月に関係なく全員表示(退職済み・入職前の人も含める)
+      </label>
+    </div>
     <div id="mo_copyPrevWrap" style="display:none;margin:-6px 0 14px;">
       <button type="button" class="btn ghost small" id="mo_copyPrevBtn"></button>
     </div>
@@ -1503,8 +1509,9 @@ function populateMonthlyWorkerSelect(){
   const yearMonth = $('mo_yearMonth').value;
   const monthStart = yearMonth ? yearMonth+'-01' : null;
   const monthEnd = yearMonth ? yearMonth+'-31' : null;
+  const showAll = $('mo_showAllWorkers').checked;
   const scoped = revenueScopedWorkers().filter(w=>{
-    if(!yearMonth) return true;
+    if(showAll || !yearMonth) return true;
     if(w.hireDate && w.hireDate > monthEnd) return false;
     if(w.resignDate && w.resignDate < monthStart) return false;
     return true;
@@ -1600,6 +1607,7 @@ function copyFromPreviousMonth(){
 function openMonthlyModal(id){
   $('mo_btnSave').disabled = false;
   $('mo_id').value=''; $('mo_yearMonth').value = $('revMonthFilter').value || localMonthStr();
+  $('mo_showAllWorkers').checked = false;
   populateMonthlyWorkerSelect();
   editingSegments = [{unitPrice:'', workHours:'', days:'', adjustHours:'', overtime:false}];
   $('mo_revenueDeduction').value=0; $('mo_workerPay').value=''; $('mo_incentive').value=0; $('mo_partnerFee').value=0; $('mo_memo').value='';
@@ -2935,7 +2943,13 @@ $('btnAddWorker').addEventListener('click', ()=>{
   openWorkerModal(null);
 });
 $('homeBtnAddWorker').addEventListener('click', ()=> openWorkerModal(null));
-$('homeBtnAddMonthly').addEventListener('click', ()=> openMonthlyModal(null));
+$('homeBtnAddMonthly').addEventListener('click', ()=>{
+  // クイック操作からは、売上管理ページで最後に選んでいたタブ(自社/パートナーのみ)に
+  // 引っ張られてパートナーが消えてしまわないよう、常に「全員」で開く
+  revenueScopeTab = 'all';
+  lsSet('crm-revenue-scope-tab', revenueScopeTab);
+  openMonthlyModal(null);
+});
 document.querySelectorAll('.global-scope-tabs .scope-tab').forEach(b=> b.addEventListener('click', ()=> switchGlobalScope(b.dataset.scope)));
 document.querySelectorAll('#revenueScopeTabs .scope-tab').forEach(b=> b.addEventListener('click', ()=> switchRevenueScope(b.dataset.scope)));
 $('w_btnCancel').addEventListener('click', closeWorkerModal);
@@ -2993,6 +3007,13 @@ $('mo_yearMonth').addEventListener('change', ()=>{
   updateCopyPrevButton();
 });
 $('mo_copyPrevBtn').addEventListener('click', copyFromPreviousMonth);
+$('mo_showAllWorkers').addEventListener('change', ()=>{
+  const prevWorker = $('mo_worker').value;
+  populateMonthlyWorkerSelect();
+  if(prevWorker && [...$('mo_worker').options].some(o=>o.value===prevWorker)){
+    $('mo_worker').value = prevWorker;
+  }
+});
 $('mo_seg_addRow').addEventListener('click', addSegmentRow);
 $('mo_workerPay_auto').addEventListener('change', recalcAutoPay);
 $('mo_partnerFee_auto').addEventListener('change', recalcAutoPay);
