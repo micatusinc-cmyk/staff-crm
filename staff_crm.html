@@ -273,9 +273,11 @@
   <div class="nav-backdrop" id="navBackdrop"></div>
   <nav class="side" id="navSide">
     <div class="brand">ReLGroup<span>稼働者管理</span></div>
-    <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:6px;">
+    <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
       <span class="status-dot" id="syncDot"></span>
       <button type="button" id="btnSyncNow" style="background:none;border:none;color:rgba(255,255,255,.55);font-size:10px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">今すぐ同期</button>
+      <span style="color:rgba(255,255,255,.3);">|</span>
+      <button type="button" id="btnClearCache" style="background:none;border:none;color:rgba(255,255,255,.55);font-size:10px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">アプリを更新</button>
     </div>
     <button class="active" data-view="home"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>ホーム</button>
     <button data-view="workers"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>稼働者一覧</button>
@@ -313,6 +315,7 @@
       <div class="topbar">
         <div><h1>稼働者一覧</h1><div class="meta" id="workerMeta">-</div></div>
         <div style="display:flex;gap:8px;">
+          <button class="btn danger" id="btnBulkDeleteWorkers" style="display:none;">選択した<span id="workerSelCount">0</span>件を削除</button>
           <button class="btn ghost" id="btnExportWorkersCsv">⭳ CSV出力</button>
           <button class="btn" id="btnAddWorker">＋ 稼働者を追加</button>
         </div>
@@ -349,7 +352,7 @@
         <div class="table-scroll">
         <table id="workerTable">
           <thead>
-            <tr><th>氏名</th><th>担当者</th><th>状態</th><th>入職日</th><th>退職(予定)日</th><th>経路</th><th>案件履歴</th><th>在籍期間</th><th></th></tr>
+            <tr><th style="width:30px;"><input type="checkbox" id="workerSelectAll"></th><th>氏名</th><th>担当者</th><th>状態</th><th>入職日</th><th>退職(予定)日</th><th>経路</th><th>案件履歴</th><th>在籍期間</th><th></th></tr>
           </thead>
           <tbody id="workerTbody"></tbody>
         </table>
@@ -721,7 +724,7 @@ function exportTableToCSV(tableEl, filename){
   const rows = [...tableEl.querySelectorAll('tr')];
   if(!rows.length){ alert('出力できるデータがありません'); return; }
   const csvLines = rows.map(tr=>{
-    const cells = [...tr.querySelectorAll('th,td')];
+    const cells = [...tr.querySelectorAll('th,td')].filter(cell=> !cell.querySelector('input[type=checkbox]'));
     return cells.slice(0, -1).map(cell=>{
       const text = cell.textContent.replace(/\s+/g,' ').trim();
       return '"' + text.replace(/"/g,'""') + '"';
@@ -898,6 +901,26 @@ function populateFilterChannelForTab(){
   if([...$('filterChannel').options].some(o=>o.value===current)) $('filterChannel').value = current;
 }
 
+let selectedWorkerIds = new Set(); // 稼働者一覧で複数選択されているID
+function updateWorkerBulkDeleteUI(){
+  const n = selectedWorkerIds.size;
+  $('workerSelCount').textContent = n;
+  $('btnBulkDeleteWorkers').style.display = n>0 ? 'inline-block' : 'none';
+}
+async function bulkDeleteWorkers(){
+  const ids = [...selectedWorkerIds];
+  if(!ids.length) return;
+  if(!confirm(`選択した${ids.length}件の稼働者データを削除しますか?(各稼働者の案件配属履歴も削除されます)`)) return;
+  const idSet = new Set(ids);
+  workers = workers.filter(w=>!idSet.has(w.id));
+  const relatedAssignments = assignments.filter(a=>idSet.has(a.workerId));
+  assignments = assignments.filter(a=>!idSet.has(a.workerId));
+  await saveWorkersLocal(); await saveAssignmentsLocal();
+  selectedWorkerIds.clear();
+  renderAll();
+  ids.forEach(id=> syncDeleteRecord('worker', id));
+  relatedAssignments.forEach(a=> syncDeleteRecord('assignment', a.id));
+}
 function renderWorkers(){
   populateFilterChannelForTab();
   const fManager = $('filterManager').value;
@@ -933,6 +956,7 @@ function renderWorkers(){
     const statusColor = sm.cls==='active' ? 'var(--success)' : sm.cls==='retiring' ? 'var(--amber)' : 'var(--coral)';
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td><input type="checkbox" class="row-select" data-id="${s.id}" ${selectedWorkerIds.has(s.id)?'checked':''}></td>
       <td style="border-left:3px solid ${statusColor};"><div style="display:flex;align-items:center;gap:9px;">${workerAvatar(s)}<span>${s.name||'(名称未設定)'}</span></div></td>
       <td>${managerName(s.managerId)}</td>
       <td><span class="badge ${sm.cls}">${sm.icon} ${sm.label}</span></td>
@@ -950,6 +974,14 @@ function renderWorkers(){
   }
   tbody.querySelectorAll('[data-edit]').forEach(b=> b.addEventListener('click', ()=> openWorkerModal(b.dataset.edit)));
   tbody.querySelectorAll('[data-quitquick]').forEach(b=> b.addEventListener('click', ()=> quickMarkLeaving(b.dataset.quitquick)));
+  tbody.querySelectorAll('.row-select').forEach(cb=> cb.addEventListener('change', ()=>{
+    if(cb.checked) selectedWorkerIds.add(cb.dataset.id); else selectedWorkerIds.delete(cb.dataset.id);
+    updateWorkerBulkDeleteUI();
+  }));
+  const visibleIds = new Set(sorted.map(s=>s.id));
+  [...selectedWorkerIds].forEach(id=>{ if(!visibleIds.has(id)) selectedWorkerIds.delete(id); });
+  $('workerSelectAll').checked = sorted.length>0 && sorted.every(s=>selectedWorkerIds.has(s.id));
+  updateWorkerBulkDeleteUI();
 
   const active = scoped.filter(s=>s.status!=='resigned');
   const now = new Date();
@@ -1939,8 +1971,33 @@ function toggleNavDrawer(){
 }
 $('navToggle').addEventListener('click', toggleNavDrawer);
 $('btnSyncNow').addEventListener('click', ()=> pullFromSheet(false));
+async function clearAppCacheAndReload(){
+  try{
+    if('serviceWorker' in navigator){
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for(const reg of regs) await reg.unregister();
+    }
+    if('caches' in window){
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k=>caches.delete(k)));
+    }
+  }catch(e){}
+  location.reload();
+}
+$('btnClearCache').addEventListener('click', async ()=>{
+  if(!confirm('アプリのキャッシュを消して最新版を読み込み直します。よろしいですか?')) return;
+  await clearAppCacheAndReload();
+});
 $('navBackdrop').addEventListener('click', closeNavDrawer);
 document.querySelectorAll('nav.side button').forEach(b=> b.addEventListener('click', ()=>{ switchView(b.dataset.view); closeNavDrawer(); }));
+$('workerSelectAll').addEventListener('change', ()=>{
+  document.querySelectorAll('#workerTbody .row-select').forEach(cb=>{
+    cb.checked = $('workerSelectAll').checked;
+    if(cb.checked) selectedWorkerIds.add(cb.dataset.id); else selectedWorkerIds.delete(cb.dataset.id);
+  });
+  updateWorkerBulkDeleteUI();
+});
+$('btnBulkDeleteWorkers').addEventListener('click', bulkDeleteWorkers);
 $('btnExportWorkersCsv').addEventListener('click', ()=>{
   exportTableToCSV($('workerTable'), `稼働者一覧_${localDateStr()}.csv`);
 });
