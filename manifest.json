@@ -1,6 +1,6 @@
 {
-  "name": "ReLGroup 稼働者管理",
-  "short_name": "稼働者管理",
+  "name": "ReLGroup 稼働者管理(マスタ)",
+  "short_name": "稼働者管理(マスタ)",
   "description": "ReLGroup 稼働者管理・売上管理システム",
   "start_url": "./staff_crm.html",
   "scope": "./",
