@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ReLGroup稼働者管理(マスタ)</title>
+<title>ReLGroup稼働者管理</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#1b2032">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -281,7 +281,7 @@
   <button class="nav-toggle" id="navToggle" aria-label="メニューを開く"><span></span></button>
   <div class="nav-backdrop" id="navBackdrop"></div>
   <nav class="side" id="navSide">
-    <div class="brand">ReLGroup<span>稼働者管理(マスタ)</span></div>
+    <div class="brand">ReLGroup<span>稼働者管理</span></div>
     <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:6px;">
       <span class="status-dot" id="syncDot"></span>
       <button type="button" id="btnSyncNow" style="background:none;border:none;color:rgba(255,255,255,.55);font-size:10px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">今すぐ同期</button>
@@ -428,6 +428,12 @@
           <option value="hire_asc">入職: 古い順</option>
           <option value="hire_desc">入職: 新しい順</option>
         </select>
+      </div>
+
+      <div class="card" id="revCompletionCard" style="display:none;">
+        <h2 id="revCompletionTitle">入力状況チェック</h2>
+        <div id="revCompletionSummary" style="margin-bottom:10px;"></div>
+        <div id="revCompletionMissing"></div>
       </div>
 
       <div class="card">
@@ -1810,6 +1816,41 @@ function renderRevenue(){
   const revColor = revenueScopeTab==='all' ? '#2f9e4f' : revenueScopeTab==='partner' ? '#2f6fa6' : '#c0392b';
   const profitColor = revenueScopeTab==='all' ? '#9ccb3b' : revenueScopeTab==='partner' ? '#7ecbe0' : '#e07a9e';
   $('revenueTheadRow').innerHTML = `<th>氏名</th><th>担当者</th><th>対象月</th><th>単価</th><th>稼働時間</th><th>その他</th><th>売上</th>${showWorkerPayCol?'<th>本人支給</th>':''}<th>インセンティブ</th>${showPartnerFeeCol?'<th>パートナー支払</th>':''}<th>粗利</th><th></th>`;
+
+  // 「◯月分、誰が入力済みで誰が漏れているか」のチェックリスト(対象月を絞り込んでいる時だけ表示)
+  if(fMonth){
+    const monthStart = fMonth+'-01', monthEnd = fMonth+'-31';
+    let roster = revenueScopedWorkers().filter(w=>{
+      if(w.hireDate && w.hireDate > monthEnd) return false;
+      if(w.resignDate && w.resignDate < monthStart) return false;
+      return true;
+    });
+    if(fManager!=='all') roster = roster.filter(w=> w.managerId===fManager);
+    const enteredIds = new Set(monthlyRecords.filter(r=> r.yearMonth===fMonth && scopedWorkerIds.has(r.workerId)).map(r=>r.workerId));
+    const missing = roster.filter(w=> !enteredIds.has(w.id)).sort((a,b)=>(a.name||'').localeCompare(b.name||'','ja'));
+    const doneCount = roster.length - missing.length;
+    $('revCompletionCard').style.display = 'block';
+    $('revCompletionTitle').textContent = `${fMonth} 入力状況チェック`;
+    const pct = roster.length ? Math.round(doneCount/roster.length*100) : 100;
+    const pctColor = pct>=100 ? '#1f9d68' : pct>=70 ? '#d98e3f' : '#e15c60';
+    $('revCompletionSummary').innerHTML = `<div style="display:flex;align-items:center;gap:9px;">
+      <span style="font-weight:800;font-size:16px;color:${pctColor};">${doneCount}/${roster.length}人 入力済み</span>
+      <div style="flex:1;max-width:160px;height:7px;border-radius:4px;background:var(--surface-2);overflow:hidden;"><div style="width:${pct}%;height:100%;background:${pctColor};"></div></div>
+    </div>`;
+    $('revCompletionMissing').innerHTML = missing.length
+      ? `<div class="hint" style="margin:0 0 8px;">まだ${fMonth}分の実績が入力されていない人です。名前をタップすると、その人・その月を選んだ状態で実績追加が開きます。</div>` +
+        missing.map(w=>`<span class="chip" style="cursor:pointer;margin:2px 6px 2px 0;background:var(--coral-soft);color:var(--coral);" data-quickadd="${w.id}">${w.name||'(名称未設定)'}</span>`).join('')
+      : `<div class="hint" style="margin:0;color:var(--success);">✓ 対象者全員、${fMonth}分の入力が完了しています。</div>`;
+    $('revCompletionMissing').querySelectorAll('[data-quickadd]').forEach(chip=> chip.addEventListener('click', ()=>{
+      openMonthlyModal(null);
+      $('mo_showAllWorkers').checked = true;
+      populateMonthlyWorkerSelect();
+      $('mo_worker').value = chip.dataset.quickadd;
+      $('mo_worker').dispatchEvent(new Event('change'));
+    }));
+  }else{
+    $('revCompletionCard').style.display = 'none';
+  }
 
   let list = monthlyRecords.filter(r=> scopedWorkerIds.has(r.workerId));
   if(fMonth) list = list.filter(r=> r.yearMonth===fMonth);
