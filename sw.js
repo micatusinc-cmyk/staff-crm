@@ -3,7 +3,7 @@
 // 直前に開けていたページの見た目を出せるようにするための、最低限のキャッシュ。
 // スプレッドシートとの同期(fetch)にはキャッシュを使わせない(常に最新を取りに行く)。
 
-const CACHE_NAME = 'relgroup-crm-v1';
+const CACHE_NAME = 'relgroup-crm-v2';
 const APP_SHELL = [
   './staff_crm.html',
   './staff_crm_limited.html',
