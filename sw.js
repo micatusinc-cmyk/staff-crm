@@ -1,14 +1,10 @@
 // ReLGroup 稼働者管理 - サービスワーカー
-// アプリを「インストール」できるようにするためと、通信が一瞬途切れた時でも
-// 直前に開けていたページの見た目を出せるようにするための、最低限のキャッシュ。
-// スプレッドシートとの同期(fetch)にはキャッシュを使わせない(常に最新を取りに行く)。
+// アイコン画像だけキャッシュし、HTML本体やmanifest.jsonはキャッシュしない。
+// (アプリ名などを直しても反映されない、という事故が起きていたため、
+//  内容が変わりうるファイルは一切キャッシュに残さない方針に変更した)
 
-const CACHE_NAME = 'relgroup-crm-v2';
+const CACHE_NAME = 'relgroup-crm-v3';
 const APP_SHELL = [
-  './staff_crm.html',
-  './staff_crm_limited.html',
-  './manifest.json',
-  './manifest-limited.json',
   './icon-192.png',
   './icon-512.png',
   './icon-512-maskable.png'
@@ -39,6 +35,13 @@ self.addEventListener('fetch', (event) => {
   }
   // 別ドメイン(フォント等)もキャッシュ対象外、素通しにする
   if (url.origin !== self.location.origin) {
+    return;
+  }
+  // 画像(アイコン)以外は絶対にキャッシュに保存しない
+  // (HTMLやmanifest.jsonをキャッシュすると、アプリ名や内容を直しても反映されない事故になるため)
+  const isImage = /\.(png|jpg|jpeg|svg|ico)$/i.test(url.pathname);
+  if (!isImage) {
+    event.respondWith(fetch(event.request));
     return;
   }
 
