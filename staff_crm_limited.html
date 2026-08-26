@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ReLGroup稼働者管理</title>
+<title>ReLGroup稼働者管理【制限版】</title>
 <link rel="manifest" href="manifest-limited.json">
 <meta name="theme-color" content="#1b2032">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -175,6 +175,7 @@
   .mo-seg-ot input{flex:none;width:auto;padding:0;}
 
   .an-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:22px;}
+  .mg-chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:22px;margin-top:22px;}
   .nav-toggle{display:none;position:fixed;top:14px;left:14px;z-index:60;width:42px;height:42px;border-radius:12px;background:var(--card);backdrop-filter:var(--glass);-webkit-backdrop-filter:var(--glass);border:1px solid var(--line);box-shadow:var(--shadow-md);align-items:center;justify-content:center;cursor:pointer;padding:0;}
   .nav-toggle span,.nav-toggle span::before,.nav-toggle span::after{content:'';display:block;width:18px;height:2px;background:var(--ink);border-radius:2px;transition:transform .2s ease,opacity .2s ease;}
   .nav-toggle span{position:relative;}
@@ -272,7 +273,7 @@
   <button class="nav-toggle" id="navToggle" aria-label="メニューを開く"><span></span></button>
   <div class="nav-backdrop" id="navBackdrop"></div>
   <nav class="side" id="navSide">
-    <div class="brand">ReLGroup<span>稼働者管理</span></div>
+    <div class="brand">ReLGroup<span>稼働者管理【制限版】</span></div>
     <div style="padding:0 20px 14px;font-size:10px;color:#8ea3c4;display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
       <span class="status-dot" id="syncDot"></span>
       <button type="button" id="btnSyncNow" style="background:none;border:none;color:rgba(255,255,255,.55);font-size:10px;cursor:pointer;padding:0;font-family:inherit;text-decoration:underline;">今すぐ同期</button>
@@ -316,7 +317,7 @@
         <div><h1>稼働者一覧</h1><div class="meta" id="workerMeta">-</div></div>
         <div style="display:flex;gap:8px;">
           <button class="btn danger" id="btnBulkDeleteWorkers" style="display:none;">選択した<span id="workerSelCount">0</span>件を削除</button>
-          <button class="btn ghost" id="btnExportWorkersCsv">⭳ CSV出力</button>
+          <button class="btn ghost" id="btnExportWorkersCsv">⭳ Excel出力</button>
           <button class="btn" id="btnAddWorker">＋ 稼働者を追加</button>
         </div>
       </div>
@@ -330,14 +331,22 @@
       <div class="grid-kpi" id="workerKpiRow"></div>
 
       <div class="filter-bar">
-        <select id="filterManager"><option value="all">担当者: 全て</option></select>
-        <select id="filterStatus">
-          <option value="all">状態: 全て</option>
-          <option value="active">稼働中</option>
-          <option value="retiring">退職予定</option>
-          <option value="resigned">退職済み</option>
-        </select>
-        <select id="filterChannel"></select>
+        <details class="ms-dropdown" id="wFilterManagerDropdown">
+          <summary id="wFilterManagerSummary">担当者: 全て</summary>
+          <div class="ms-panel" id="wFilterManagerPanel"></div>
+        </details>
+        <details class="ms-dropdown" id="wFilterStatusDropdown">
+          <summary id="wFilterStatusSummary">状態: 全て</summary>
+          <div class="ms-panel" id="wFilterStatusPanel"></div>
+        </details>
+        <details class="ms-dropdown" id="wFilterChannelDropdown">
+          <summary id="wFilterChannelSummary">経路: 全て</summary>
+          <div class="ms-panel" id="wFilterChannelPanel"></div>
+        </details>
+        <details class="ms-dropdown" id="wFilterProjectDropdown">
+          <summary id="wFilterProjectSummary">案件: 全て</summary>
+          <div class="ms-panel" id="wFilterProjectPanel"></div>
+        </details>
         <input type="month" id="filterHireMonth" title="入職月で絞り込み">
         <input id="filterSearch" placeholder="氏名で検索">
         <select id="sortOrder">
@@ -388,6 +397,17 @@
         </table>
         </div>
         <div class="empty" id="managerEmpty" style="display:none;">まだ担当者が登録されていません。</div>
+      </div>
+
+      <div class="mg-chart-grid" id="mgChartGrid">
+        <div class="card">
+          <h2>担当者別 人数比較<span style="font-weight:400;color:var(--sub);">(稼働中)</span></h2>
+          <div id="mgHeadcountBars"></div>
+        </div>
+        <div class="card">
+          <h2>担当者別 今月の増減<span style="font-weight:400;color:var(--sub);">(入職−退職)</span></h2>
+          <div id="mgNetChangeBars"></div>
+        </div>
       </div>
     </section>
 
@@ -636,7 +656,7 @@ let workers = [];
 let managers = [];
 let assignments = [];
 /* 連携用のGAS URLをここに直接埋め込んでいるので、アプリを開けば自動的にスプレッドシートと同期されます。 */
-const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbxubSb8cuftUV9yh9Gaaw2y2XA-C1ZHyz0Hu8l1T5BiOhnCB11tFFLbMeRb5CL6agE/exec';
+const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbyowUdwoFAG0Gho-VaOLBiXSnatWqmIxgVgDnRlT9Xty1neC0wCZ5EdgD4l0LVdT57y/exec';
 
 let gasUrl = '';
 let editingWorkerId = null;
@@ -717,21 +737,153 @@ function uid(p){ return (p||'id') + '_' + Date.now() + Math.random().toString(36
    日付や月が1つズレることがあるため、必ずローカル時刻の値からゼロ埋めで組み立てる。
    例: new Date(2026,7,1).toISOString() は JST だと "2026-07-31T15:00:00.000Z" になり、
    月キーが8月ではなく7月になってしまう不具合があった。 */
-/* 今テーブルに表示されている内容(フィルター・並び替え適用後)を、そのままCSVとして書き出す。
+/* ============ Excelファイル(.xlsx)書き出し ============
+   外部ライブラリを使わず、ZIP(無圧縮=store方式)+ 最小限のOOXML(Office Open XML)を
+   その場で組み立てて本物の.xlsxバイナリを生成する。オフラインのPWAとしても動くように、
+   CDN等の外部依存を持ち込まない方針。 */
+function xlsxColLetter(n){
+  let s=''; n++;
+  while(n>0){ const r=(n-1)%26; s=String.fromCharCode(65+r)+s; n=Math.floor((n-1)/26); }
+  return s;
+}
+function xlsxEscape(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
+}
+const xlsxCrc32 = (()=>{
+  let table;
+  return function(bytes){
+    let c, crc = 0xFFFFFFFF;
+    if(!table){
+      table = new Uint32Array(256);
+      for(let n=0;n<256;n++){
+        c = n;
+        for(let k=0;k<8;k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+        table[n] = c >>> 0;
+      }
+    }
+    for(let i=0;i<bytes.length;i++) crc = table[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+  };
+})();
+function xlsxStrToBytes(str){ return new TextEncoder().encode(str); }
+function xlsxBuildZip(files){
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+  const dosTime = 0, dosDate = 0x21; // 中身に影響しない固定の更新日時(2000/1/1)
+
+  files.forEach(f=>{
+    const nameBytes = xlsxStrToBytes(f.name);
+    const crc = xlsxCrc32(f.data);
+    const size = f.data.length;
+
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true);
+    lv.setUint16(4, 20, true);
+    lv.setUint16(6, 0, true);
+    lv.setUint16(8, 0, true); // 圧縮方式=store(無圧縮)
+    lv.setUint16(10, dosTime, true);
+    lv.setUint16(12, dosDate, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, size, true);
+    lv.setUint32(22, size, true);
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
+    local.set(nameBytes, 30);
+    localParts.push(local, f.data);
+
+    const central = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(central.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, dosTime, true);
+    cv.setUint16(14, dosDate, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, size, true);
+    cv.setUint32(24, size, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    central.set(nameBytes, 46);
+    centralParts.push(central);
+    offset += local.length + f.data.length;
+  });
+
+  const centralSize = centralParts.reduce((s,p)=>s+p.length,0);
+  const centralOffset = offset;
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true);
+  ev.setUint16(6, 0, true);
+  ev.setUint16(8, files.length, true);
+  ev.setUint16(10, files.length, true);
+  ev.setUint32(12, centralSize, true);
+  ev.setUint32(16, centralOffset, true);
+  ev.setUint16(20, 0, true);
+
+  const all = [...localParts, ...centralParts, eocd];
+  const totalLen = all.reduce((s,p)=>s+p.length,0);
+  const out = new Uint8Array(totalLen);
+  let pos = 0;
+  all.forEach(p=>{ out.set(p, pos); pos += p.length; });
+  return out;
+}
+function xlsxSheetXml(rows){
+  const rowsXml = rows.map((row,ri)=>{
+    const cellsXml = row.map((val,ci)=>{
+      const ref = xlsxColLetter(ci) + (ri+1);
+      const text = val==null ? '' : String(val);
+      return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xlsxEscape(text)}</t></is></c>`;
+    }).join('');
+    return `<row r="${ri+1}">${cellsXml}</row>`;
+  }).join('');
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rowsXml}</sheetData></worksheet>`;
+}
+function xlsxBuildWorkbook(rows, sheetName){
+  sheetName = (sheetName||'Sheet1').slice(0,31);
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
+  const rootRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xlsxEscape(sheetName)}" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const workbookRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="1"><font><sz val="11"/><name val="Calibri"/></font></fonts><fills count="1"><fill><patternFill patternType="none"/></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  const sheetXml = xlsxSheetXml(rows);
+  const files = [
+    {name:'[Content_Types].xml', data: xlsxStrToBytes(contentTypes)},
+    {name:'_rels/.rels', data: xlsxStrToBytes(rootRels)},
+    {name:'xl/workbook.xml', data: xlsxStrToBytes(workbookXml)},
+    {name:'xl/_rels/workbook.xml.rels', data: xlsxStrToBytes(workbookRels)},
+    {name:'xl/styles.xml', data: xlsxStrToBytes(stylesXml)},
+    {name:'xl/worksheets/sheet1.xml', data: xlsxStrToBytes(sheetXml)},
+  ];
+  return xlsxBuildZip(files);
+}
+/* 今テーブルに表示されている内容(フィルター・並び替え適用後)を、そのままExcelファイルとして書き出す。
    最後の列(編集/削除などの操作ボタン)は除外する。 */
-function exportTableToCSV(tableEl, filename){
+function exportTableToXLSX(tableEl, filename, sheetName){
   if(!tableEl) return;
   const rows = [...tableEl.querySelectorAll('tr')];
   if(!rows.length){ alert('出力できるデータがありません'); return; }
-  const csvLines = rows.map(tr=>{
+  const dataRows = rows.map(tr=>{
     const cells = [...tr.querySelectorAll('th,td')].filter(cell=> !cell.querySelector('input[type=checkbox]'));
-    return cells.slice(0, -1).map(cell=>{
-      const text = cell.textContent.replace(/\s+/g,' ').trim();
-      return '"' + text.replace(/"/g,'""') + '"';
-    }).join(',');
+    return cells.slice(0, -1).map(cell=> cell.textContent.replace(/\s+/g,' ').trim());
   });
-  const csvContent = '\uFEFF' + csvLines.join('\r\n');
-  const blob = new Blob([csvContent], {type:'text/csv;charset=utf-8;'});
+  const bytes = xlsxBuildWorkbook(dataRows, sheetName);
+  const blob = new Blob([bytes], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = filename;
@@ -852,53 +1004,78 @@ function matchesChannelFilter(s, val){
 }
 function populateManagerSelects(){
   const wCurrent = $('w_manager') ? $('w_manager').value : '';
-  const fCurrent = $('filterManager') ? $('filterManager').value : 'all';
-
   const opts = managers.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
   $('w_manager').innerHTML = opts || '<option value="">(担当者未登録)</option>';
-  $('filterManager').innerHTML = '<option value="all">担当者: 全て</option>' + managers.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');
-
   if(wCurrent && managers.some(m=>m.id===wCurrent)) $('w_manager').value = wCurrent;
-  if(fCurrent && (fCurrent==='all' || managers.some(m=>m.id===fCurrent))) $('filterManager').value = fCurrent;
 }
 
 /* ============ render: workers ============ */
 let workerScopeTab = lsGet('crm-worker-scope-tab') || 'own';
-let filterChannelSignature = '';
 
-function populateFilterChannelForTab(){
+/* ============ 稼働者一覧の複数選択フィルター ============
+   担当者・状態・経路・案件の4つを、チェックボックス付きドロップダウンで複数選択できるようにする。
+   selected配列が空 = 「全て」扱い(既存の担当者別サマリーの絞り込みパネルと同じ考え方)。 */
+let wFilterManagers = [];
+let wFilterStatuses = [];
+let wFilterChannels = [];
+let wFilterProjects = [];
+function renderMultiFilterPanel(panelId, summaryId, allLabel, options, getSelected, setSelected, onChange){
+  const panel = $(panelId);
+  if(!panel) return;
+  const selected = getSelected().filter(v=> options.some(o=>o.value===v)); // 消えた選択肢は自動的に外す
+  if(selected.length !== getSelected().length) setSelected(selected);
+  const prefix = allLabel.replace(/[:：].*$/,'');
+  let html = `<label><input type="checkbox" class="ms-all-ck" ${selected.length===0?'checked':''}> 全て</label>`;
+  if(options.length) html += '<hr>' + options.map(o=>`<label><input type="checkbox" class="ms-item-ck" value="${o.value}" ${selected.includes(o.value)?'checked':''}> ${o.label}</label>`).join('');
+  panel.innerHTML = html;
+  panel.querySelector('.ms-all-ck').addEventListener('change', (e)=>{
+    if(e.target.checked){ setSelected([]); onChange(); }
+    else{ e.target.checked = true; } // 何も選ばれていない状態は許可しない
+  });
+  panel.querySelectorAll('.ms-item-ck').forEach(ck=> ck.addEventListener('change', ()=>{
+    const checked = [...panel.querySelectorAll('.ms-item-ck:checked')].map(x=>x.value);
+    setSelected(checked);
+    onChange();
+  }));
+  const summaryEl = $(summaryId);
+  if(!summaryEl) return;
+  if(selected.length===0) summaryEl.textContent = allLabel;
+  else if(selected.length===1){ const opt=options.find(o=>o.value===selected[0]); summaryEl.textContent = `${prefix}: ${opt?opt.label:selected[0]}`; }
+  else summaryEl.textContent = `${prefix}: ${selected.length}件選択`;
+}
+function channelOptionsForTab(){
   const scoped = workers.filter(s=>matchesWorkerScope(s, workerScopeTab));
-  let optsHtml = '';
-  let sig = '';
   if(workerScopeTab==='own'){
-    sig = 'own';
-    optsHtml = `<option value="all">経路: 全て</option>
-      <option value="own_jobA">Zone</option>
-      <option value="own_jobB">NC</option>
-      <option value="own_referral">リファラル</option>`;
-  }else if(workerScopeTab==='partner'){
-    const partnerNames = [...new Set(scoped.map(s=> s.channelDetail || '(パートナー名未入力)'))].sort();
-    sig = 'partner:' + partnerNames.join(',');
-    optsHtml = `<option value="all">パートナー: 全て</option>` +
-      partnerNames.map(n=> `<option value="partner_${encodeURIComponent(n)}">${n}</option>`).join('');
-  }else{
-    const partnerNames = [...new Set(workers.filter(s=>s.channelType==='partner').map(s=> s.channelDetail || '(パートナー名未入力)'))].sort();
-    sig = 'all:' + partnerNames.join(',');
-    optsHtml = `<option value="all">経路: 全て</option>
-      <optgroup label="自社">
-        <option value="own_jobA">Zone</option>
-        <option value="own_jobB">NC</option>
-        <option value="own_referral">リファラル</option>
-      </optgroup>
-      <optgroup label="パートナー">` +
-      partnerNames.map(n=> `<option value="partner_${encodeURIComponent(n)}">${n}</option>`).join('') +
-      `</optgroup>`;
+    return [{value:'own_jobA',label:'Zone'},{value:'own_jobB',label:'NC'},{value:'own_referral',label:'リファラル'}];
   }
-  if(sig === filterChannelSignature) return;
-  filterChannelSignature = sig;
-  const current = $('filterChannel').value;
-  $('filterChannel').innerHTML = optsHtml;
-  if([...$('filterChannel').options].some(o=>o.value===current)) $('filterChannel').value = current;
+  if(workerScopeTab==='partner'){
+    const partnerNames = [...new Set(scoped.map(s=> s.channelDetail || '(パートナー名未入力)'))].sort();
+    return partnerNames.map(n=>({value:`partner_${encodeURIComponent(n)}`, label:n}));
+  }
+  const partnerNames = [...new Set(workers.filter(s=>s.channelType==='partner').map(s=> s.channelDetail || '(パートナー名未入力)'))].sort();
+  return [
+    {value:'own_jobA',label:'Zone'},{value:'own_jobB',label:'NC'},{value:'own_referral',label:'リファラル'},
+    ...partnerNames.map(n=>({value:`partner_${encodeURIComponent(n)}`, label:n}))
+  ];
+}
+function projectOptionsForScope(){
+  const scopedIds = new Set(workers.filter(s=>matchesWorkerScope(s, workerScopeTab)).map(s=>s.id));
+  const names = [...new Set(assignments.filter(a=> scopedIds.has(a.workerId) && a.projectName).map(a=>a.projectName))].sort((a,b)=>a.localeCompare(b,'ja'));
+  return names.map(n=>({value:n, label:n}));
+}
+function populateWorkerFilterPanels(){
+  renderMultiFilterPanel('wFilterManagerPanel','wFilterManagerSummary','担当者: 全て',
+    managers.map(m=>({value:m.id,label:m.name})),
+    ()=>wFilterManagers, v=>{wFilterManagers=v;}, renderWorkers);
+  renderMultiFilterPanel('wFilterStatusPanel','wFilterStatusSummary','状態: 全て',
+    [{value:'active',label:'稼働中'},{value:'retiring',label:'退職予定'},{value:'resigned',label:'退職済み'}],
+    ()=>wFilterStatuses, v=>{wFilterStatuses=v;}, renderWorkers);
+  renderMultiFilterPanel('wFilterChannelPanel','wFilterChannelSummary','経路: 全て',
+    channelOptionsForTab(),
+    ()=>wFilterChannels, v=>{wFilterChannels=v;}, renderWorkers);
+  renderMultiFilterPanel('wFilterProjectPanel','wFilterProjectSummary','案件: 全て',
+    projectOptionsForScope(),
+    ()=>wFilterProjects, v=>{wFilterProjects=v;}, renderWorkers);
 }
 
 let selectedWorkerIds = new Set(); // 稼働者一覧で複数選択されているID
@@ -922,18 +1099,16 @@ async function bulkDeleteWorkers(){
   relatedAssignments.forEach(a=> syncDeleteRecord('assignment', a.id));
 }
 function renderWorkers(){
-  populateFilterChannelForTab();
-  const fManager = $('filterManager').value;
-  const fStatus = $('filterStatus').value;
-  const fChannel = $('filterChannel').value;
+  populateWorkerFilterPanels();
   const fHireMonth = $('filterHireMonth').value;
   const fSearch = $('filterSearch').value.trim().toLowerCase();
 
   const scoped = workers.filter(s=>matchesWorkerScope(s, workerScopeTab));
   const filtered = scoped.filter(s=>
-    (fManager==='all' || s.managerId===fManager) &&
-    (fStatus==='all' || s.status===fStatus) &&
-    matchesChannelFilter(s, fChannel) &&
+    (wFilterManagers.length===0 || wFilterManagers.includes(s.managerId)) &&
+    (wFilterStatuses.length===0 || wFilterStatuses.includes(s.status)) &&
+    (wFilterChannels.length===0 || wFilterChannels.some(c=> matchesChannelFilter(s, c))) &&
+    (wFilterProjects.length===0 || assignments.some(a=> a.workerId===s.id && wFilterProjects.includes(a.projectName))) &&
     (!fHireMonth || (s.hireDate||'').slice(0,7)===fHireMonth) &&
     (!fSearch || (s.name||'').toLowerCase().includes(fSearch))
   );
@@ -1009,8 +1184,7 @@ function switchGlobalScope(scope){
   workerScopeTab = scope;
   lsSet('crm-worker-scope-tab', scope);
   syncScopeTabsUI();
-  filterChannelSignature = ''; // タブが変わったら経路の選択肢を作り直す
-  $('filterChannel').value = 'all';
+  wFilterChannels = []; // タブが変わったら経路の選択肢が変わるため、選択をリセット
   renderAll();
 }
 
@@ -1068,10 +1242,52 @@ function retentionBar(rate){
     <span style="font-weight:800;color:${color};font-size:12px;white-space:nowrap;">${rate}%</span>
   </div>`;
 }
+/* 横棒グラフの汎用ヘルパー。担当者別サマリー(人数・増減)などで使い回す。
+   opts.allowNegative=trueなら、値がマイナスの項目を赤で表示する(増減グラフ用)。 */
+function buildBarListChart(items, opts){
+  opts = opts || {};
+  const fmt = opts.fmt || (v=> String(v));
+  const allowNegative = !!opts.allowNegative;
+  const maxAbs = Math.max(1, ...items.map(it=> Math.abs(it.value)));
+  return items.map(it=>{
+    const pct = Math.min(100, Math.abs(it.value)/maxAbs*100);
+    const color = allowNegative ? (it.value<0 ? 'var(--coral)' : (it.color||'var(--success)')) : (it.color||'var(--accent)');
+    return `<div class="bar-row">
+      <span>${it.label}</span>
+      <div><div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color};"></div></div></div>
+      <span style="width:auto;white-space:nowrap;font-weight:700;color:${color};">${fmt(it.value)}</span>
+    </div>`;
+  }).join('');
+}
 function renderManagers(){
   populateManagerSelects();
   ensureMgFilterPanel();
   renderManagerTable();
+  renderManagerCharts();
+}
+/* 担当者別サマリーのグラフ(人数・今月の増減)を描画する。 */
+function renderManagerCharts(){
+  const shownManagers = managerSummaryFilter.length ? managers.filter(m=>managerSummaryFilter.includes(m.id)) : managers;
+  if(!shownManagers.length){
+    const emptyHtml = '<div class="empty">担当者が未登録です</div>';
+    ['mgHeadcountBars','mgNetChangeBars'].forEach(id=>{ if($(id)) $(id).innerHTML = emptyHtml; });
+    return;
+  }
+  const thisMonthKey = localMonthStr();
+
+  const headcountItems = shownManagers.map(m=>({
+    label: m.name,
+    value: workers.filter(s=> s.managerId===m.id && matchesWorkerScope(s, workerScopeTab) && s.status!=='resigned').length
+  }));
+  $('mgHeadcountBars').innerHTML = buildBarListChart(headcountItems, {fmt:v=>`${v}人`});
+
+  const netChangeItems = shownManagers.map(m=>{
+    const list = workers.filter(s=> s.managerId===m.id && matchesWorkerScope(s, workerScopeTab));
+    const hires = list.filter(s=> s.hireDate && s.hireDate.slice(0,7)===thisMonthKey).length;
+    const leaves = list.filter(s=> s.status==='resigned' && s.resignDate && s.resignDate.slice(0,7)===thisMonthKey).length;
+    return {label: m.name, value: hires - leaves};
+  });
+  $('mgNetChangeBars').innerHTML = buildBarListChart(netChangeItems, {fmt:v=> (v>0?'+':'')+v+'人', allowNegative:true});
 }
 function renderManagerTable(){
   const tbody = $('managerTbody');
@@ -1999,7 +2215,7 @@ $('workerSelectAll').addEventListener('change', ()=>{
 });
 $('btnBulkDeleteWorkers').addEventListener('click', bulkDeleteWorkers);
 $('btnExportWorkersCsv').addEventListener('click', ()=>{
-  exportTableToCSV($('workerTable'), `稼働者一覧_${localDateStr()}.csv`);
+  exportTableToXLSX($('workerTable'), `稼働者一覧_${localDateStr()}.xlsx`, '稼働者一覧');
 });
 $('btnAddWorker').addEventListener('click', ()=>{
   if(workerScopeTab==='own' || workerScopeTab==='partner') lastChannelType = workerScopeTab;
@@ -2026,9 +2242,6 @@ $('q_btnSave').addEventListener('click', saveQuit);
 $('quitOverlay').addEventListener('click', (e)=>{ if(e.target.id==='quitOverlay') closeQuitModal(); });
 document.querySelectorAll('input[name=q_status]').forEach(r=> r.addEventListener('change', toggleQuitStatusLabel));
 
-$('filterManager').addEventListener('change', renderWorkers);
-$('filterStatus').addEventListener('change', renderWorkers);
-$('filterChannel').addEventListener('change', renderWorkers);
 $('filterHireMonth').addEventListener('change', renderWorkers);
 $('filterSearch').addEventListener('input', renderWorkers);
 $('sortOrder').addEventListener('change', renderWorkers);
