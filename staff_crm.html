@@ -117,6 +117,8 @@
   .rev-month-header td{background:var(--surface-2);font-size:12.5px;padding:9px 10px;border-bottom:1px solid var(--line);}
   .rev-month-header:hover td{background:#eef0f8;}
   .rev-month-toggle{display:inline-block;width:14px;color:var(--sub);font-size:10px;}
+  .rev-row-detail td{border-bottom:1px solid var(--line-soft);background:var(--surface-2);}
+  .rev-row-detail:hover td{background:var(--surface-2);}
   .badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
   .badge.active{background:var(--success-soft);color:var(--success);}
   .badge.retiring{background:var(--amber-soft);color:#a3691a;}
@@ -1549,6 +1551,7 @@ function renderManagerCharts(){
 /* ============ render: revenue (売上管理) ============ */
 let editingMonthlyId = null;
 let revenueMonthCollapseOverride = new Map(); // 売上管理テーブルの対象月ごとの開閉状態(ユーザーが明示的にクリックした分のみ記録。未記録の月は「最新月だけ開く」がデフォルト)
+let expandedRevenueDetailIds = new Set(); // 実績データ1件ごとの詳細(単価・稼働時間など)を開いているものだけ記録。デフォルトは全件折りたたみ
 let mgBarsExpanded = false; // 担当者別 売上比較を全部見せるかどうか
 let editingSegments = [{unitPrice:'', workHours:'', days:'', adjustHours:'', overtime:false}];
 let editingHoursPerDay = 8; // 実績入力モーダルで使う「1日の換算時間」(デフォルト8時間、変更可能)
@@ -2211,8 +2214,38 @@ function renderRevenue(){
   tbody.innerHTML='';
   $('revenueEmpty').style.display = list.length? 'none':'block';
 
-  function buildRevenueRow(r){
+  const colCount = 8 + (showWorkerPayCol?1:0) + (showPartnerFeeCol?1:0) + 1;
+  /* 1件ごとの実績データは、名前・対象月・売上・粗利だけの要約行を常に表示し、
+     単価・稼働時間・本人支給などの内訳は行をクリックしたときだけ開く(デフォルトは折りたたみ)。
+     チェックボックスと編集ボタンは要約行だけに置き、畳んだままでも選択・編集できるようにする。 */
+  function buildRevenueSummaryRow(r, isExpanded){
     const w = workers.find(x=>x.id===r.workerId);
+    const tr = document.createElement('tr');
+    tr.className = 'rev-row-summary';
+    tr.innerHTML = `
+      <td><input type="checkbox" class="row-select" data-id="${r.id}" ${selectedRevenueIds.has(r.id)?'checked':''}></td>
+      <td colspan="${colCount-2}" class="rev-row-toggle" style="cursor:pointer;">
+        <span class="rev-month-toggle">${isExpanded?'▼':'▶'}</span>
+        <span style="display:inline-flex;align-items:center;gap:8px;">${w? workerAvatar(w,22) : ''}<strong>${w? w.name : '(削除済み)'}</strong></span>
+        <span class="chip faint" style="margin-left:6px;">${r.yearMonth}</span>
+        <span style="color:${revColor};font-weight:700;margin-left:10px;">売上 ¥${Number(r.revenue||0).toLocaleString()}</span>
+        <span style="color:${profitColor};font-weight:700;margin-left:8px;">粗利 ¥${Number(r.grossProfit||0).toLocaleString()}</span>
+      </td>
+      <td class="row-actions"><button class="primary" data-moedit="${r.id}">✎ 編集</button></td>
+    `;
+    tr.querySelector('[data-moedit]').addEventListener('click', (e)=>{ e.stopPropagation(); openMonthlyModal(r.id); });
+    tr.querySelector('.row-select').addEventListener('change', (e)=>{
+      e.stopPropagation();
+      if(e.target.checked) selectedRevenueIds.add(r.id); else selectedRevenueIds.delete(r.id);
+      updateRevenueBulkDeleteUI();
+    });
+    tr.querySelector('.rev-row-toggle').addEventListener('click', ()=>{
+      if(expandedRevenueDetailIds.has(r.id)) expandedRevenueDetailIds.delete(r.id); else expandedRevenueDetailIds.add(r.id);
+      renderRevenue();
+    });
+    return tr;
+  }
+  function buildRevenueDetailRow(r){
     const segs = monthlySegmentsOf(r);
     const hasRealSegs = segs.some(s=> (Number(s.unitPrice)||0)>0 || (Number(s.workHours)||0)>0);
     const fmtSegPrice = s => {
@@ -2233,34 +2266,22 @@ function renderRevenue(){
       : segs.length>1
         ? `${fmtHours(r.workHours||0)}h <span class="chip faint">${segs.length}区分</span>`
         : `${fmtHours(r.workHours||0)}h`;
+    const parts = [`単価: ${priceCell}`, `稼働時間: ${hoursCell}`, `その他: ¥${Number(r.revenueDeduction||0).toLocaleString()}`];
+    if(showWorkerPayCol) parts.push(`本人支給: ¥${Number(r.workerPay||0).toLocaleString()}`);
+    parts.push(`インセンティブ: ¥${Number(r.incentive||0).toLocaleString()}`);
+    if(showPartnerFeeCol) parts.push(`パートナー支払: ¥${Number(r.partnerFee||0).toLocaleString()}`);
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td><input type="checkbox" class="row-select" data-id="${r.id}" ${selectedRevenueIds.has(r.id)?'checked':''}></td>
-      <td><div style="display:flex;align-items:center;gap:8px;">${w? workerAvatar(w,24) : ''}<span>${w? w.name : '(削除済み)'}</span></div></td>
-      <td>${w? managerName(w.managerId) : '-'}</td>
-      <td>${r.yearMonth}</td>
-      <td>${priceCell}</td>
-      <td>${hoursCell}</td>
-      <td>¥${Number(r.revenueDeduction||0).toLocaleString()}</td>
-      <td>¥${Number(r.revenue||0).toLocaleString()}</td>
-      ${showWorkerPayCol? `<td>¥${Number(r.workerPay||0).toLocaleString()}</td>` : ''}
-      <td>¥${Number(r.incentive||0).toLocaleString()}</td>
-      ${showPartnerFeeCol? `<td>¥${Number(r.partnerFee||0).toLocaleString()}</td>` : ''}
-      <td>¥${Number(r.grossProfit||0).toLocaleString()}</td>
-      <td class="row-actions"><button class="primary" data-moedit="${r.id}">✎ 編集</button></td>
-    `;
-    tr.querySelector('[data-moedit]').addEventListener('click', ()=> openMonthlyModal(r.id));
-    tr.querySelector('.row-select').addEventListener('change', (e)=>{
-      if(e.target.checked) selectedRevenueIds.add(r.id); else selectedRevenueIds.delete(r.id);
-      updateRevenueBulkDeleteUI();
-    });
+    tr.className = 'rev-row-detail';
+    tr.innerHTML = `<td></td><td colspan="${colCount-1}" style="font-size:12px;color:var(--sub);padding:2px 10px 10px 34px;">${parts.join('　|　')}</td>`;
     return tr;
   }
-
-  const colCount = 8 + (showWorkerPayCol?1:0) + (showPartnerFeeCol?1:0) + 1;
   if(fMonth || revSortMode!=='month_desc'){
     // 対象月で絞り込み中、または対象月以外の並び順を選んでいるときはグループ化せずそのまま並べる
-    list.forEach(r=> tbody.appendChild(buildRevenueRow(r)));
+    list.forEach(r=>{
+      const isExpanded = expandedRevenueDetailIds.has(r.id);
+      tbody.appendChild(buildRevenueSummaryRow(r, isExpanded));
+      if(isExpanded) tbody.appendChild(buildRevenueDetailRow(r));
+    });
   }else{
     // 対象月ごとにまとめ、クリックで開閉できるようにする(直近の月だけ初期状態で開いておく)
     const groups = {};
@@ -2287,7 +2308,11 @@ function renderRevenue(){
       });
       tbody.appendChild(headerTr);
       if(!isCollapsed){
-        groupRows.forEach(r=> tbody.appendChild(buildRevenueRow(r)));
+        groupRows.forEach(r=>{
+          const isExpanded = expandedRevenueDetailIds.has(r.id);
+          tbody.appendChild(buildRevenueSummaryRow(r, isExpanded));
+          if(isExpanded) tbody.appendChild(buildRevenueDetailRow(r));
+        });
       }
     });
   }
