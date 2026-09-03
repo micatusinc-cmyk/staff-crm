@@ -623,6 +623,11 @@
           <label><input type="radio" name="w_payRatePlan" value="custom">その他(手入力)</label>
         </div>
         <input type="number" min="0" id="w_payRateCustom" placeholder="時給(円) 例: 1500" style="display:none;margin-top:6px;">
+        <label style="font-size:11px;color:var(--sub);font-weight:600;display:block;margin:10px 0 4px;">源泉徴収区分<span style="font-weight:400;"> ─ 売上管理の税務計算(消費税・源泉徴収)で使用します</span></label>
+        <div class="radio-row" id="w_withholdingRow">
+          <label><input type="radio" name="w_withholding" value="excluded" checked>対象外</label>
+          <label><input type="radio" name="w_withholding" value="target">対象</label>
+        </div>
       </div>
       <div class="subfield" id="w_partnerDetailWrap" style="display:none;">
         <input id="w_partnerName" list="partnerNameList" placeholder="パートナー名" autocomplete="off">
@@ -1552,6 +1557,7 @@ function renderManagerCharts(){
 let editingMonthlyId = null;
 let revenueMonthCollapseOverride = new Map(); // 売上管理テーブルの対象月ごとの開閉状態(ユーザーが明示的にクリックした分のみ記録。未記録の月は「最新月だけ開く」がデフォルト)
 let expandedRevenueDetailIds = new Set(); // 実績データ1件ごとの詳細(単価・稼働時間など)を開いているものだけ記録。デフォルトは全件折りたたみ
+let revFlatListExpanded = false; // 対象月などで絞り込んだときの一覧全体の開閉状態。デフォルトは折りたたみ
 let mgBarsExpanded = false; // 担当者別 売上比較を全部見せるかどうか
 let editingSegments = [{unitPrice:'', workHours:'', days:'', adjustHours:'', overtime:false}];
 let editingHoursPerDay = 8; // 実績入力モーダルで使う「1日の換算時間」(デフォルト8時間、変更可能)
@@ -1796,6 +1802,41 @@ function computeRevenueForRecord(rec){
   const revenue = grossRevenue + (Number(rec.incentive)||0);
   const profit = revenue - (Number(rec.workerPay)||0) - (Number(rec.incentive)||0) - (Number(rec.partnerFee)||0) - (Number(rec.revenueDeduction)||0);
   return {revenue, profit};
+}
+/* ============ 消費税・源泉徴収の税務計算(自社稼働者のみ) ============
+   ユーザー提供のExcel(計算.xlsx)の計算式をそのまま再現したもの。
+   インボイス制度の経過措置により、免税事業者への支払に対する仕入税額控除は段階的に縮小する
+   (〜2026/9: 80%控除=非控除20% / 2026/10〜: 50%控除=非控除50%)。
+   経過措置の判定日は、案件の配属開始日ではなく実績データの対象月(yearMonth)を使う
+   (実際に取引・請求が発生する時期を基準にするため)。
+   源泉徴収は「源泉区分」が対象の稼働者のみ、支払額(税抜)に対して計算する
+   (100万円以下: 10.21% / 100万円超: 100万円分は10.21%、超過分は20.42%)。
+   注意: アプリ内の「本人支給」(rec.workerPay)は時給プラン(¥1,534/¥1,420など)に基づく
+   税込の金額。Excel側の支払単価(¥1,395/¥1,291など)は税抜のため、この計算に使う前に
+   ÷1.1して税抜化してから使う(インセンティブは元からExcel側で税込として10/110で
+   税抜化する式になっているので、それはそのまま踏襲する)。 */
+const CONSUMPTION_TAX_RATE = 0.1;
+const INVOICE_TRANSITION_DATE = '2026-10'; // この対象月(yyyy-mm)以降は控除不能率が50%に上がる
+function taxCalcForRecord(rec, w){
+  if(!w || w.channelType!=='own') return null; // このExcelの計算は自社稼働者のみに適用
+  const M = Number(rec.revenue)||0;              // 売上(税抜) ※インセンティブ込み
+  const workerPayGross = Number(rec.workerPay)||0; // 本人支給(税込、アプリの通常表示値)
+  const O = Math.floor(workerPayGross / 1.1);     // 支払額(税抜) ─ 税込値から逆算
+  const I = Number(rec.incentive)||0;             // インセンティブ(税込とみなす)
+  const N = Math.floor(M * CONSUMPTION_TAX_RATE);                                   // 消費税(売上)
+  const P = Math.floor(O * CONSUMPTION_TAX_RATE) + Math.floor(I * 10 / 110);        // 消費税相当(支払)
+  const nonDeductRate = (rec.yearMonth||'') >= INVOICE_TRANSITION_DATE ? 0.5 : 0.2;
+  const Q = Math.floor(P * nonDeductRate);                                          // 控除不能消費税
+  const withholdingApplies = w.withholdingTarget === 'target';
+  const R = withholdingApplies
+    ? Math.floor(O > 1000000 ? 1000000*0.1021 + (O-1000000)*0.2042 : O*0.1021)
+    : 0;                                                                            // 源泉徴収額
+  const S = M + N;                                                                  // 請求額(税込)
+  const T = O + Math.floor(O * CONSUMPTION_TAX_RATE) + I - R;                       // 振込額(税込)
+  const profitAfterTax = M - O - (I - Math.floor(I * 10 / 110)) - Q;                // 粗利(税考慮後)
+  const profitMargin = M!==0 ? profitAfterTax/M : null;                            // 粗利率
+  const dueTax = N - P + Q;                                                        // 納入予定消費税額
+  return {O, N, P, Q, R, S, T, profitAfterTax, profitMargin, warn: Q>0, dueTax};
 }
 function populateRevFilters(){
   const sig = managers.map(m=>m.id).join(',') + '|' + revenueScopeTab;
@@ -2246,6 +2287,7 @@ function renderRevenue(){
     return tr;
   }
   function buildRevenueDetailRow(r){
+    const w = workers.find(x=>x.id===r.workerId);
     const segs = monthlySegmentsOf(r);
     const hasRealSegs = segs.some(s=> (Number(s.unitPrice)||0)>0 || (Number(s.workHours)||0)>0);
     const fmtSegPrice = s => {
@@ -2270,18 +2312,54 @@ function renderRevenue(){
     if(showWorkerPayCol) parts.push(`本人支給: ¥${Number(r.workerPay||0).toLocaleString()}`);
     parts.push(`インセンティブ: ¥${Number(r.incentive||0).toLocaleString()}`);
     if(showPartnerFeeCol) parts.push(`パートナー支払: ¥${Number(r.partnerFee||0).toLocaleString()}`);
+    const tax = taxCalcForRecord(r, w);
+    let taxHtml = '';
+    if(tax){
+      const taxParts = [
+        `支払額(税抜): ¥${tax.O.toLocaleString()}`,
+        `消費税(売上): ¥${tax.N.toLocaleString()}`,
+        `消費税相当(支払): ¥${tax.P.toLocaleString()}`,
+        `控除不能消費税: ¥${tax.Q.toLocaleString()}${tax.warn?' ⚠':''}`,
+        `源泉徴収額: ¥${tax.R.toLocaleString()}`,
+        `請求額(税込): ¥${tax.S.toLocaleString()}`,
+        `振込額(税込): ¥${tax.T.toLocaleString()}`,
+        `粗利(税考慮後): ¥${Math.round(tax.profitAfterTax).toLocaleString()}${tax.profitMargin!==null?` (${Math.round(tax.profitMargin*1000)/10}%)`:''}`,
+        `納入予定消費税額: ¥${tax.dueTax.toLocaleString()}`
+      ];
+      taxHtml = `<div style="margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);">${taxParts.join('　|　')}</div>`;
+    }
     const tr = document.createElement('tr');
     tr.className = 'rev-row-detail';
-    tr.innerHTML = `<td></td><td colspan="${colCount-1}" style="font-size:12px;color:var(--sub);padding:2px 10px 10px 34px;">${parts.join('　|　')}</td>`;
+    tr.innerHTML = `<td></td><td colspan="${colCount-1}" style="font-size:12px;color:var(--sub);padding:2px 10px 10px 34px;">${parts.join('　|　')}${taxHtml}</td>`;
     return tr;
   }
   if(fMonth || revSortMode!=='month_desc'){
-    // 対象月で絞り込み中、または対象月以外の並び順を選んでいるときはグループ化せずそのまま並べる
-    list.forEach(r=>{
-      const isExpanded = expandedRevenueDetailIds.has(r.id);
-      tbody.appendChild(buildRevenueSummaryRow(r, isExpanded));
-      if(isExpanded) tbody.appendChild(buildRevenueDetailRow(r));
+    // 対象月で絞り込み中、または対象月以外の並び順を選んでいるときは、
+    // 一覧全体を1つの見出し行にまとめ、クリックするまでは中身を表示しない(デフォルト折りたたみ)。
+    const sumListRevenue = list.reduce((s,r)=>s+(Number(r.revenue)||0),0);
+    const sumListProfit = list.reduce((s,r)=>s+(Number(r.grossProfit)||0),0);
+    const listLabel = fMonth || '検索結果';
+    const listHeaderTr = document.createElement('tr');
+    listHeaderTr.className = 'rev-month-header';
+    listHeaderTr.innerHTML = `<td colspan="${colCount}">
+      <span class="rev-month-toggle">${revFlatListExpanded?'▼':'▶'}</span>
+      <strong>${listLabel}</strong>
+      <span class="chip faint">${list.length}件</span>
+      <span style="color:${revColor};font-weight:700;margin-left:8px;">売上 ¥${Math.round(sumListRevenue).toLocaleString()}</span>
+      <span style="color:${profitColor};font-weight:700;margin-left:8px;">粗利 ¥${Math.round(sumListProfit).toLocaleString()}</span>
+    </td>`;
+    listHeaderTr.addEventListener('click', ()=>{
+      revFlatListExpanded = !revFlatListExpanded;
+      renderRevenue();
     });
+    tbody.appendChild(listHeaderTr);
+    if(revFlatListExpanded){
+      list.forEach(r=>{
+        const isExpanded = expandedRevenueDetailIds.has(r.id);
+        tbody.appendChild(buildRevenueSummaryRow(r, isExpanded));
+        if(isExpanded) tbody.appendChild(buildRevenueDetailRow(r));
+      });
+    }
   }else{
     // 対象月ごとにまとめ、クリックで開閉できるようにする(直近の月だけ初期状態で開いておく)
     const groups = {};
@@ -2849,6 +2927,7 @@ function resetWorkerForm(){
   document.querySelector(`input[name=w_cdetail_own][value=${lastChannelType==='own'? lastChannelDetail : 'jobA'}]`).checked=true;
   document.querySelector('input[name=w_payRatePlan][value=salary270]').checked=true;
   $('w_payRateCustom').value=''; $('w_payRateCustom').style.display='none';
+  document.querySelector('input[name=w_withholding][value=excluded]').checked=true;
   $('w_reason').value='給与';
   $('w_btnDelete').style.display='none';
   toggleWorkerStatusFields(); toggleWorkerChannelFields();
@@ -3117,6 +3196,7 @@ function openWorkerModal(id){
       document.querySelector(`input[name=w_cdetail_own][value=${s.channelDetail||'jobA'}]`).checked=true;
       document.querySelector(`input[name=w_payRatePlan][value=${s.payRatePlan||'salary270'}]`).checked=true;
       $('w_payRateCustom').value = s.payRateCustomHourly||'';
+      document.querySelector(`input[name=w_withholding][value=${s.withholdingTarget||'excluded'}]`).checked=true;
     }else{
       $('w_partnerName').value=s.channelDetail||'';
     }
@@ -3220,6 +3300,7 @@ async function saveWorker(chainAssignment){
     channelDetail: ctype==='own' ? document.querySelector('input[name=w_cdetail_own]:checked').value : $('w_partnerName').value.trim(),
     payRatePlan: ctype==='own' ? document.querySelector('input[name=w_payRatePlan]:checked').value : '',
     payRateCustomHourly: ctype==='own' ? (Number($('w_payRateCustom').value)||0) : 0,
+    withholdingTarget: ctype==='own' ? document.querySelector('input[name=w_withholding]:checked').value : 'excluded',
     // 卸単価(パートナー支払単価)は案件配属履歴側の「卸単価履歴」に移管したため、稼働者フォームからは書き込まない。
     // 移行前の旧データが残っている場合は、消してしまわないようそのまま引き継ぐ。
     partnerRateCustomHourly: existingWorker ? existingWorker.partnerRateCustomHourly : undefined,
